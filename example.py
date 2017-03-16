@@ -3,6 +3,7 @@
 
 	'''
 # pylint: disable=C0103
+import jsonpickle
 
 # This provides the object to call the API.
 # Also can generate conditional clauses for DB searches, if you have the DB locally.
@@ -61,3 +62,17 @@ if not result["error_state"]:
 			print("\n" + key + ":" + str(result[key]))
 
 # Not much else to do yet - but that's to be next.  (Getting this checked in as a baseline).
+
+# Try a KEGG search!
+t_s = TAEDSearch(min_taxa="10", max_taxa="10",kegg_pathway="ABC transporters")
+result = t_s.run_web_query("http://127.0.0.1:5000/search")
+
+print(t_s.__dict__)
+
+if not result["error_state"]:
+	# No error!
+	print("Kegg Search is going to get a lot more results.")
+	print(result.keys())
+else:
+	print("Oops.")
+	print(result)

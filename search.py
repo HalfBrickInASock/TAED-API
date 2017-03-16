@@ -13,6 +13,7 @@ import MySQLdb
 import jsonpickle
 import sys
 import logging
+import urllib
 
 from flask import Flask
 from flask import request
@@ -34,20 +35,21 @@ def db_load_old(search_obj, gene_dict):
 		"""
 	# pylint: disable=C0103
 	log = logging.getLogger("dbserver")
+	db = None
 	try:
 		db = MySQLdb.connect(host="localhost", user=DB_USER, passwd=DB_PASS, db="TAED")
 		c = db.cursor(MySQLdb.cursors.DictCursor)
 
 		# Conditional clause is built by search data; everything is covered in the two tables
 		#	below in old format.
-		where_clause, parameters = search_obj.build_conditional()
+		from_clause, where_clause, parameters = search_obj.build_conditional()
 		c.execute("SELECT * FROM gimap" +
-					" INNER JOIN taedfile ON gimap.taedFileNumber = taedfile.taedFileNumber " +
-					where_clause, parameters)
+					" INNER JOIN taedfile ON gimap.taedFileNumber = taedfile.taedFileNumber" +
+					from_clause + where_clause, parameters)
 	except:
 		gene_dict["error_state"] = True
 		gene_dict["error_message"] = "There was an error getting your results from the db."
-		log.error("DB Connection Problem: %s", sys.exc_info()[0])
+		log.error("DB Connection Problem: %s", sys.exc_info())
 	try:
 		for i in range(0, c.rowcount):
 			base = c.fetchone()
@@ -73,9 +75,9 @@ def db_load_old(search_obj, gene_dict):
 	except:
 		gene_dict["error_state"] = True
 		gene_dict["error_message"] = "There was an error with the data returned by the DB."
-		log.error("Data Problem: %s", sys.exc_info()[0])
-	db.close()
-	gene_dict["error_state"] = False
+		log.error("Data Problem: %s", sys.exc_info())
+	if db is not None:
+		db.close()
 	return gene_dict
 
 def db_load_new(search_obj, gene_dict):
@@ -112,14 +114,16 @@ def taed_search():
 									species=request.form['species'],
 									gene=request.form['gene'],
 									min_taxa=request.form['min_taxa'],
-									max_taxa=request.form['max_taxa'])
+									max_taxa=request.form['max_taxa'],
+									kegg_pathway=request.form['kegg_pathway'])
 		else:
 			# GET does work.
 			user_query = TAEDSearch(gi=request.args.get('gi_number', ''),
-									species=request.args.get('species', ''),
-									gene=request.args.get('gene', ''),
+									species=urllib.parse.unquote_plus(request.args.get('species', '')),
+									gene=urllib.parse.unquote_plus(request.args.get('gene', '')),
 									min_taxa=request.args.get('min_taxa', ''),
-									max_taxa=request.args.get('max_taxa', ''))
+									max_taxa=request.args.get('max_taxa', ''),
+									kegg_pathway=urllib.parse.unquote_plus(request.args.get('kegg_pathway', '')))
 	else:
 		return user_data
 	if user_query.error_state:

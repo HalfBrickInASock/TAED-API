@@ -24,35 +24,39 @@ class TAEDSearch(object):
 	__gene = None
 	__min_taxa = None
 	__max_taxa = None
+	__kegg_pathway = None
 	error_state = False
 	error_message = None
 
 	def __init__(self, gi="", species="", gene="",
-					min_taxa="", max_taxa=""):
+					min_taxa="", max_taxa="", kegg_pathway=""):
 		self.error_state = False
 		self.error_message = None
 		self.__gi = gi
 		self.__species = species
 		self.__gene = gene
+		self.__kegg_pathway = kegg_pathway
 		self.__min_taxa = min_taxa
 		self.__max_taxa = max_taxa
 		if ((self.__gi != "") or
 			(self.__species != "") or
-			(self.__gene != "")):
+			(self.__gene != "") or
+			(self.__kegg_pathway != "")):
 			if (((self.__min_taxa != "") and (not self.__min_taxa.isdigit())) or
 				((self.__max_taxa != "") and (not self.__max_taxa.isdigit()))):
 				self.error_state = True
 				self.error_message = "Invalid Taxa Data (Non Numeric)"
 		else:
 			self.error_state = True
-			self.error_message = "No Search Data; Please Pass gi_number, species, or gene"
+			self.error_message = "No Search Data; Please Pass gi_number, kegg_pathway, species, or gene"
 
 	def build_conditional(self):
 		"""Builds conditional WHERE clause for an SQL query for search.
 
 			No parameters; builds should work in both old and new DB formats.
 			"""
-		cond = "WHERE (True)"
+		from_clause = ""
+		cond = " WHERE (True)"
 		parameters = []
 		if self.__gi != "":
 			cond += " AND (gi = %s)"
@@ -64,11 +68,15 @@ class TAEDSearch(object):
 			if self.__gene != "":
 				cond += " AND (geneName LIKE %s)"
 				parameters.append(self.__gene)
+			if self.__kegg_pathway != "":
+				from_clause += " INNER JOIN keggMap ON keggMap.gi = gimap.gi"
+				cond += " AND (keggMap.pathName = %s)"
+				parameters.append(self.__kegg_pathway)
 			if (self.__min_taxa != "") or (self.__max_taxa != ""):
 				cond += " AND (directory BETWEEN %s AND %s)"
 				parameters.append(self.__min_taxa)
 				parameters.append(self.__max_taxa)
-		return cond, parameters
+		return from_clause, cond, parameters
 
 	def run_web_query(self, remote_url):
 		"""Queries remote webservice with search data to get JSON result.
@@ -87,6 +95,8 @@ class TAEDSearch(object):
 				request_data['species'] = self.__species
 			if self.__gene != "":
 				request_data['gene'] = self.__gene
+			if self.__kegg_pathway != "":
+				request_data['kegg_pathway'] = self.__kegg_pathway
 			if self.__min_taxa != "":
 				request_data['min_taxa'] = self.__min_taxa
 			if self.__max_taxa != "":

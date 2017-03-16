@@ -8,10 +8,12 @@ See example.py for usage of these tools.
 
 Current API Calls Support:
 	search.py
-		Search as on the website; using gi number, gene, or species.
-		(Latter two can be limited by min/max taxa)
+		Search as on the website; using gi number, gene, kegg pathway or species.
+		(Latter three can be limited by min/max taxa)
 		Returns files for alignment, gene tree, and reconciled tree.
 		More detailed queries following.
+	KEGG.py
+		Returns list of KEGG pathways that can be used with search query.
 
 Package Requirements:
 	Local Call to Server [from TAEDSearch import TAEDSearch]
