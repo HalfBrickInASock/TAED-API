@@ -1,0 +1,10 @@
+---
+# Server setup configuration
+db:
+  host: "localhost"
+  user: "root"
+  pass: ""
+  old_db: "TAED"
+  new_db: "TAED_LIGHT"
+flat_file: "E:\\TAED"
+upload_folder: "E:\\TAED\\Uploads"
