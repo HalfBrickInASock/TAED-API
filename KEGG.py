@@ -1,20 +1,21 @@
-import json
-import os
-import MySQLdb
-import jsonpickle
+"""KEGG Pathway Search Module.
+
+	Allows fetching the list of KEGG Pathnames that will work with JSON queries.
+	"""
 import sys
 import logging
-import yaml
 
+import jsonpickle
+import MySQLdb
+
+from ruamel import yaml
 from flask import Flask
 from flask import request
 
 import TAEDStruct
 
 APP = Flask(__name__)
-FLAT_FILE_PATH = "E:\\TAED"
-DB_USER = "root"
-DB_PASS	= ""
+CONF = yaml.safe_load(open('config.yaml', 'r+'))
 
 def db_load_old():
 	""" Get list of KEGG records into a dictionary for future use in searching."""
@@ -23,7 +24,8 @@ def db_load_old():
 	db = None
 	kegg_dict = {}
 	try:
-		db = MySQLdb.connect(host="localhost", user=DB_USER, passwd=DB_PASS, db="TAED")
+		db = MySQLdb.connect(host=CONF["db"]["host"], user=CONF["db"]["user"],
+								passwd=CONF["db"]["pass"], db=CONF["db"]["old_db"])
 		c = db.cursor(MySQLdb.cursors.DictCursor)
 
 		# Conditional clause is built by search data; everything is covered in the two tables

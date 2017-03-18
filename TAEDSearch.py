@@ -3,9 +3,159 @@
     Classes:
     TAEDSearch -- Object handling data for a requested search.
 	"""
+from uuid import uuid4
+import re
+from os import path, stat
+from io import StringIO
+from enum import Enum
+from numbers import Number
+from Bio import SeqIO
+from Bio.Blast import NCBIXML
+from Bio.Seq import Seq
+from Bio.SeqRecord import SeqRecord
 import requests
-import TAEDStruct
 import jsonpickle
+
+import TAEDStruct
+
+MAX_BLAST = 5
+
+class BLASTStatus(Enum):
+	ERROR = -1,
+	UNITIALIZED = 0,
+	READY = 1,
+	IN_PROGRESS = 2,
+	COMPLETE = 4
+
+class BLASTSearch(object):
+	"""Object holding blast search data.
+
+		Interface Variables:
+		error_state -- Whether search data currently held is in error or not.
+		error_message -- Details on error related to current search data (if any).
+
+		Public Methods:
+		build_blastall_params -- Builds list of parameters for blastall search.
+		run_web_query -- Runs json query to remote service and returns result.
+		"""
+	__job_name = "BLAST Search"
+	__sequences = []
+	__e_value = None
+	__max_hits = None
+	__seq_re = re.compile(r"/^[ABCDEFGHIKLMNPQRSTUVWYZX\*\-\n\r]+$/i")
+	__uid = None
+	__remote_location = ""
+	__target_files = []
+	error_state = True
+	error_message = "Unitialized"
+	run_status = BLASTStatus.UNITIALIZED
+
+	def __init__(self, job_name="BLAST Search", e_value="", max_hits="", #pylint: disable=too-many-arguments
+					sequence="", file_data=None, file_name=""):
+		self.__job_name = job_name
+		self.__e_value = e_value
+		self.__max_hits = max_hits
+		self.__uid = uuid4()
+
+		if not isinstance(e_value, Number):
+			self.__error_message = "e_value must be a number."
+			return
+		if not isinstance(max_hits, Number):
+			self.__error_message = "max_hits must be a number."
+			return
+
+		if sequence != "":
+			if self.__seq_re.match(sequence) is None:
+				self.error_message = "Submitted sequence is not a valid sequence."
+				return
+			else:
+				t_seq = Seq(str(sequence))
+				t_seqrec = SeqRecord(t_seq, id=self.__job_name)
+				self.__sequences.append(t_seqrec)
+		else:
+			handle = None
+			if file_data is not None:
+				handle = StringIO.read(open(file_data))
+			elif file_name is not None:
+				handle = open(file_name, "rU")
+			else:
+				self.error_message = "A sequence or FASTA file must be sent."
+				return
+			for record in SeqIO.parse(handle, "fasta"):
+				self.__sequences.append(record)
+			handle.close()
+
+		self.__error_state = False
+		self.run_status = BLASTStatus.READY
+		return
+
+	def build_blastall_params(self, data_folder):
+		"""Builds blastall command line arguments.
+			"""
+		parameter_list = []
+
+		for i in range(self.__sequences):
+
+			# "-i {0}".format(path.join(input_folder, uid + i)),
+			self.__target_files.append(path.join(data_folder, "blasted", self.__uid + i))
+
+			seq_param = [
+				"-p blastp",
+				"-d {0}".format(path.join(data_folder, "BLAST", "DATABASE99.fasta")),
+				"-o {2}".format(self.__target_files[i]),
+				"-a 2",
+				"-m {0}".format(7) #XML Format
+			]
+			if self.__e_value != "":
+				seq_param.append("-e {0}".format(self.__e_value))
+			if self.__max_hits != "":
+				seq_param.append("-v {0}".format(self.__max_hits))
+			parameter_list.append(seq_param)
+			if i >= MAX_BLAST:
+				break
+
+		return self.__sequences, parameter_list
+
+	def get_local_status(self):
+		files_made = 0
+		for file_path in self.__target_files:
+			if path.exists(file_path):
+				if stat(file_path).st_size > 0:
+					files_made += 1
+		if files_made == len(self.__target_files) and files_made > 0:
+			self.run_status = BLASTStatus.COMPLETE
+
+		return self.run_status
+
+	def get_remote_status(self):
+		req = requests.get(self.__remote_location, params={"uid" : self.__uid})
+		self.run_status = jsonpickle.decode(req.text)
+		return self.run_status
+
+	def run_web_query(self, remote_url):
+		"""Queries remote webservice with data for BLAST search to get JSON result.
+
+			Keyword Arguments:
+				remote_url -- URL of webservice to call.
+
+			Return:
+				JSON Object holding a dictionary of returned data (including files).
+			"""
+		# Placeholder
+		request_data = {}
+		self.__remote_location = remote_url
+		req = requests.get(remote_url, params=request_data)
+		return jsonpickle.decode(req.text)
+
+	def return_files(self):
+		if self.run_status != BLASTStatus.COMPLETE:
+			return {"error_status": True, "error_message": "BLAST Run Incomplete"}
+
+		blast_hits = []
+		for filename in self.__target_files:
+			with open(filename) as handle:
+				blast_hits.append(NCBIXML.read(handle))
+		return {"error_status": False, "blast_hits": blast_hits}
 
 class TAEDSearch(object):
 	"""Object holding user search data.
@@ -88,7 +238,7 @@ class TAEDSearch(object):
 				JSON Object holding a dictionary of returned data (including files).
 			"""
 		if self.__gi != "":
-			request_data = {'gi_number':self.__gi}
+			request_data = {'gi_number': self.__gi}
 		else:
 			request_data = {}
 			if self.__species != "":

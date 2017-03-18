@@ -9,12 +9,13 @@
 
 import json
 import os
-import MySQLdb
-import jsonpickle
 import sys
 import logging
 import urllib
+import MySQLdb
+import jsonpickle
 
+from ruamel import yaml
 from flask import Flask
 from flask import request
 
@@ -22,22 +23,21 @@ import TAEDStruct
 from TAEDSearch import TAEDSearch
 
 APP = Flask(__name__)
-FLAT_FILE_PATH = "E:\\TAED"
-DB_USER = "root"
-DB_PASS	= ""
+CONF = yaml.safe_load(open('config.yaml', 'r+'))
 
-def db_load_old(search_obj, gene_dict):
+def db_load_old(search_obj):
 	"""Load records from the database (Old Structure) into a dictionary for handling and returning.
 
 		Keyword Arguments:
 		search_obj -- Object holding search data for the call.
-		gene_dict -- Dictionary to add search result data to.
 		"""
+	gene_dict = {}
 	# pylint: disable=C0103
 	log = logging.getLogger("dbserver")
 	db = None
 	try:
-		db = MySQLdb.connect(host="localhost", user=DB_USER, passwd=DB_PASS, db="TAED")
+		db = MySQLdb.connect(host=CONF["db"]["host"], user=CONF["db"]["user"],
+								passwd=CONF["db"]["pass"], db=CONF["db"]["old_db"])
 		c = db.cursor(MySQLdb.cursors.DictCursor)
 
 		# Conditional clause is built by search data; everything is covered in the two tables
@@ -51,26 +51,25 @@ def db_load_old(search_obj, gene_dict):
 		gene_dict["error_message"] = "There was an error getting your results from the db."
 		log.error("DB Connection Problem: %s", sys.exc_info())
 	try:
-		for i in range(0, c.rowcount):
-			base = c.fetchone()
+		for gene in c:
 			# Alignment / Tree info is stored in flat files in location given by db fields.
-			path = os.path.join(FLAT_FILE_PATH, base["baseDirectory"], base["Directory"])
+			path = os.path.join(CONF["flat_file"], gene["baseDirectory"], gene["Directory"])
 
 			# Auto-load the files into our extensions of BioPython objects.
-			gene_dict[base["familyName"]] = {
+			gene_dict[gene["familyName"]] = {
 				"Alignment":
 					TAEDStruct.Alignment(
-						os.path.join(path, base["interleafed"])
-						) if base["interleafed"] != None else None,
+						os.path.join(path, gene["interleafed"])
+						) if gene["interleafed"] != None else None,
 				"Gene Tree":
 					TAEDStruct.GeneTree(
-						os.path.join(path, base["nhxRooted"])
-						) if base["nhxRooted"] != None else None,
+						os.path.join(path, gene["nhxRooted"])
+						) if gene["nhxRooted"] != None else None,
 				"Reconciled Tree" :
 					TAEDStruct.ReconciledTree(
-						os.path.join(path, base["reconciledTree"]))
+						os.path.join(path, gene["reconciledTree"]))
 			}
-			gene_dict["familyNameLen"] = str(len(gene_dict[base["familyName"]]["Alignment"].temp_return_alignment()))	# pylint: disable=C0301
+			gene_dict["familyNameLen"] = str(len(gene_dict[gene["familyName"]]["Alignment"].temp_return_alignment()))	# pylint: disable=C0301
 		gene_dict["error_state"] = False
 	except:
 		gene_dict["error_state"] = True
@@ -104,10 +103,11 @@ def taed_search():
 		gene -- Gene name.
 		min_taxa -- Minimum # of taxa for gene.
 		max_taxa -- Maximum # of taxa for gene.
+		kegg_pathway -- Name of KEGG Pathway to filter for genes.
 		"""
 	# JSON does nothing at moment, will fix.
 	user_data = request.get_json()
-	if user_data == None:
+	if user_data is None:
 		if request.method == 'POST':
 			# This doesn't work, I'm not sure why.
 			user_query = TAEDSearch(gi=request.form['gi_number'],
@@ -129,8 +129,7 @@ def taed_search():
 	if user_query.error_state:
 		return json.dumps(user_query.__dict__)
 
-	gene_dict = {}
-	return jsonpickle.encode(db_load_old(user_query, gene_dict))
+	return jsonpickle.encode(db_load_old(user_query))
 
 if __name__ == "__main__":
 	APP.run()
