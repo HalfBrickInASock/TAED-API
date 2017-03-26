@@ -10,9 +10,6 @@ import MySQLdb
 
 from ruamel import yaml
 from flask import Flask
-from flask import request
-
-import TAEDStruct
 
 APP = Flask(__name__)
 CONF = yaml.safe_load(open('config.yaml', 'r+'))
@@ -43,7 +40,7 @@ def db_load_old():
 
 	return kegg_dict
 
-@APP.route("/KEGG", methods=['GET','POST'])
+@APP.route("/KEGG", methods=['GET', 'POST'])
 def kegg_search():
 	"""Gets list of KEGG pathnames, returning a JSON object with list in 'path_names' """
 	return jsonpickle.encode(db_load_old())

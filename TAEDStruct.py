@@ -66,6 +66,15 @@ class ReconciledTree(object):
 		return False and alignment
 
 class Alignment(object):
+	"""Stores and manipulates alignments.
+
+		Methods:
+		import_from_file -- Loads Alignment from file.
+		save_to_file -- Saves Alignment to file.
+		temp_return_alignment -- Gets BioPython alignment object.
+		visualize -- Creates a visualization with the given alignment, showing where things changed.
+		fix_bad_pickle -- Drops second half of local alignment to fix issues with serializer.
+		"""
 	__local_alignment = None
 
 	def __init__(self, filename):

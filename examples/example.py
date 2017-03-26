@@ -3,11 +3,13 @@
 
 	'''
 # pylint: disable=C0103
-import jsonpickle
+import sys
+from os import path
+sys.path.insert(0, path.abspath(".."))
 
 # This provides the object to call the API.
 # Also can generate conditional clauses for DB searches, if you have the DB locally.
-from TAEDSearch import TAEDSearch
+from TAEDSearch import TAEDSearch #pylint:disable=import-error
 
 # We can search for nothing, but it will get an error.
 #  (Note: URL here is Flask local because API isn't available anywhere yet)
@@ -37,7 +39,7 @@ if not result["error_state"]:
 	print(result.keys())
 
 	for key in result:
-		if type(result[key]) is dict:
+		if isinstance(type(result[key]), dict):
 			# Next level is the data we have for each gene.
 			# Initially, it's just:
 			#	Alignment, Reconciled Tree, Gene Tree.
@@ -64,7 +66,7 @@ if not result["error_state"]:
 # Not much else to do yet - but that's to be next.  (Getting this checked in as a baseline).
 
 # Try a KEGG search!
-t_s = TAEDSearch(min_taxa="10", max_taxa="10",kegg_pathway="ABC transporters")
+t_s = TAEDSearch(min_taxa="10", max_taxa="10", kegg_pathway="ABC transporters")
 result = t_s.run_web_query("http://127.0.0.1:5000/search")
 
 print(t_s.__dict__)

@@ -2,9 +2,9 @@
 
 API for TAED, The Adaptive Evolution Database. Work in progress.
 Also provides python tools for calling it and handling the resulting data.
-Python 3.x (3.5 / 3.6)
+Python 3.x (3.5+ should definately work)
 
-See example.py for usage of these tools.
+See examples directory for examples of tool usage in python.
 
 Current API Calls Support:
 	search.py
@@ -14,9 +14,11 @@ Current API Calls Support:
 		More detailed queries following.
 	KEGG.py
 		Returns list of KEGG pathways that can be used with search query.
+	BLAST.py
+		Runs BLAST search against TAED data.
 
 Package Requirements:
-	Local Call to Server [from TAEDSearch import TAEDSearch]
+	Local Call to Server [from TAEDSearch import TAEDSearch, BLASTSearch]
 		requests (pip install requests)
 			Used for calling the API if you want to use the search object.
 		mysqlclient
@@ -24,6 +26,8 @@ Package Requirements:
 		jsonpickle (pip install jsonpickle)
 			Used for easy JSON serialization / deserialization; inbuilt has limitations.
 			Note: slightly buggy (though workaround in place)
+		biopython (pip install biopython)
+			Used for Sequence objects handled by BLAST.
 
 	Server-Side Code [search.py / KEGG.py / BLAST.py]
 		jsonpickle (pip install jsonpickle)
@@ -32,5 +36,10 @@ Package Requirements:
 			Webservice framework.
 		TAEDStruct.py
 			Our biopython wrappers - will have more functionality soon.
-			biopython (pip install biopython)
-				Objects for handling biological data
+		biopython (pip install biopython)
+			Objects for handling biological data
+		ruamel.yaml (pip install ruamel.yaml)
+			Config file parsing.
+		mysqlclient (pip install mysqlclient)
+			Python 3.x mysqldb replacement.
+		

@@ -1,41 +1,49 @@
+"""Runs BLAST searches against the TAED DB.
+	Gets you XML objects of relevant genes / families to further investigate.
+
+	Functions:
+	run_blast -- Runs the actual BLAST search requested locally.
+	blast_search -- Handles webservice call to run BLAST search.
+	blast_status -- Handles call to check status of a previous BLAST search.
+	blast_result -- Handles call to get BLAST search result.
+	"""
+
 from subprocess import Popen, PIPE
 from os import path
 import sys
-import logging
 import shelve
 
-import MySQLdb
 import jsonpickle
 from ruamel import yaml
 from flask import Flask
 from flask import request
-from Bio.Seq import Seq
-from Bio.SeqRecord import SeqRecord
 
 from TAEDSearch import BLASTSearch, BLASTStatus
 
 APP = Flask(__name__)
 CONF = yaml.safe_load(open('config.yaml', 'r+'))
 
-def run_blast(blast_search):
+def run_blast(b_search):
 	"""Runs a BLAST search using utility.
 
 		Arguments:
-		blast_search -- Search data Object.
+		b_search -- Search data Object.
 		"""
 
-	seq_data, param_list = blast_search.build_blastall_params(data_folder=CONF["flat_file"])
+	seq_data, param_list = b_search.build_blastall_params(data_folder=CONF["flat_file"])
 	blast_record = open(path.join(CONF["flat_file"], "blasted", "blastout.out"), 'a+')
 	seq_run = []
 
-	blast_search.run_status = BLASTStatus.IN_PROGRESS
+	b_search.run_status = BLASTStatus.IN_PROGRESS
 
-	for i in range(seq_data):
+	for i in range(len(seq_data)): #pylint:disable=consider-using-enumerate
 		try:
-			seq_run.append(Popen(param_list[i], stdin=PIPE, stdout=blast_record))
-			seq_run[i].stdin.write(seq_data[i].seq)
-		except:
-			blast_search.run_status = BLASTStatus.ERROR
+			seq_run.append(Popen(["blastall"] + param_list[i], stdin=PIPE, stdout=blast_record))
+			seq_run[i].stdin.write(str(seq_data[i].seq).encode('utf-8'))
+			seq_run[i].stdin.close()
+		except: #pylint:disable=bare-except
+			b_search.run_status = BLASTStatus.ERROR
+			b_search.error_message = str(sys.exc_info())
 
 @APP.route("/BLAST", methods=['GET', 'POST'])
 def blast_search():
@@ -48,6 +56,7 @@ def blast_search():
 		e_value -- Threshold E Value.
 		hits -- Maximum # of results to return.
 		"""
+	user_query = None
 	# JSON does nothing at moment, will fix.
 	user_data = request.get_json()
 	if user_data is None:
@@ -57,20 +66,22 @@ def blast_search():
 										job_name=request.form["job_name"],
 										file_data=request.form["file"],
 										e_value=request.form["e_value"],
-										max_hits=request.form["hits"])
+										max_hits=request.form["max_hits"])
 		else:
 			# GET.
-			user_query = BLASTSearch(sequence=request.form["sequence"],
-										job_name=request.form["job_name"],
-										file_data=request.form["file"],
-										e_value=request.form["e_value"],
-										max_hits=request.form["hits"])
+			user_query = BLASTSearch(sequence=request.args.get('sequence', ''),
+										job_name=request.args.get("job_name", ''),
+										file_data=request.args.get("file", ''),
+										e_value=request.args.get("e_value", ''),
+										max_hits=request.args.get("max_hits", ''))
 	else:
 		return user_data
 
-	# Placeholder.
-	run_blast(user_query)
-	return "API Not Yet Active"
+	if not user_query.error_state:
+		run_blast(user_query)
+	else:
+		return jsonpickle.encode(user_query.__dict__)
+	return jsonpickle.encode(user_query.get_local_status())
 
 @APP.route("/BLASTStatus", methods=['GET', 'POST'])
 def blast_status():

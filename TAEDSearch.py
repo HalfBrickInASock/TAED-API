@@ -5,10 +5,10 @@
 	"""
 from uuid import uuid4
 import re
+import sys
 from os import path, stat
 from io import StringIO
 from enum import Enum
-from numbers import Number
 from Bio import SeqIO
 from Bio.Blast import NCBIXML
 from Bio.Seq import Seq
@@ -16,11 +16,11 @@ from Bio.SeqRecord import SeqRecord
 import requests
 import jsonpickle
 
-import TAEDStruct
-
 MAX_BLAST = 5
 
 class BLASTStatus(Enum):
+	"""Enum for status of BLAST run.
+		"""
 	ERROR = -1,
 	UNITIALIZED = 0,
 	READY = 1,
@@ -33,16 +33,30 @@ class BLASTSearch(object):
 		Interface Variables:
 		error_state -- Whether search data currently held is in error or not.
 		error_message -- Details on error related to current search data (if any).
+		run_status -- Status of the BLAST runs.
 
 		Public Methods:
 		build_blastall_params -- Builds list of parameters for blastall search.
 		run_web_query -- Runs json query to remote service and returns result.
+
+		Setup Parameters:
+		uuid -- Unique ID for the run (in case you have one already).
+		job_name -- Name for the run.
+		e_value -- E-Value Threshold for BLAST hits.
+		max_hits -- Maximum number of hits to display.
+
+		Sequence Parameters (send one):
+		Only one is looked at; priority is order below.
+		seq_obj -- Biopython object
+		sequence -- Sequence string
+		file_data -- Object holding file contents.
+		file_name -- Name of a file (useful locally).
 		"""
 	__job_name = "BLAST Search"
 	__sequences = []
 	__e_value = None
 	__max_hits = None
-	__seq_re = re.compile(r"/^[ABCDEFGHIKLMNPQRSTUVWYZX\*\-\n\r]+$/i")
+	__seq_re = re.compile(r"^[ABCDEFGHIKLMNPQRSTUVWYZX\*\-\n\r]+$")
 	__uid = None
 	__remote_location = ""
 	__target_files = []
@@ -50,23 +64,29 @@ class BLASTSearch(object):
 	error_message = "Unitialized"
 	run_status = BLASTStatus.UNITIALIZED
 
-	def __init__(self, job_name="BLAST Search", e_value="", max_hits="", #pylint: disable=too-many-arguments
-					sequence="", file_data=None, file_name=""):
+	def __init__(self, uuid=uuid4(), job_name="BLAST Search", e_value="1.0", max_hits="50", #pylint: disable=too-many-arguments
+					seq_obj=None, sequence="", file_data=None, file_name=""):
 		self.__job_name = job_name
-		self.__e_value = e_value
-		self.__max_hits = max_hits
-		self.__uid = uuid4()
+		self.__uid = uuid
+		self.error_state = True
 
-		if not isinstance(e_value, Number):
-			self.__error_message = "e_value must be a number."
-			return
-		if not isinstance(max_hits, Number):
-			self.__error_message = "max_hits must be a number."
+		try:
+			self.__e_value = float(e_value)
+			self.__max_hits = int(max_hits)
+		except ValueError:
+			self.error_message = "Invalid Numeric Parameters (e_value / max_hits)"
 			return
 
-		if sequence != "":
+		if seq_obj is not None:
+			try:
+				# Needs to be a list of Sequence Records
+				self.__sequences = jsonpickle.decode(seq_obj)
+			except ValueError:
+				self.error_message = "Invalid Sequence Object: {0}".format(sys.exc_info())
+				return
+		elif sequence != "":
 			if self.__seq_re.match(sequence) is None:
-				self.error_message = "Submitted sequence is not a valid sequence."
+				self.error_message = "Submitted sequence (" + sequence + ") is not a valid sequence."
 				return
 			else:
 				t_seq = Seq(str(sequence))
@@ -85,31 +105,32 @@ class BLASTSearch(object):
 				self.__sequences.append(record)
 			handle.close()
 
-		self.__error_state = False
+		self.error_state = False
 		self.run_status = BLASTStatus.READY
 		return
 
 	def build_blastall_params(self, data_folder):
 		"""Builds blastall command line arguments.
+
+			Parameters:
+			data_folder -- Root folder for flat file manipulation (output, BLAST db, etc).
 			"""
 		parameter_list = []
 
-		for i in range(self.__sequences):
+		for i in range(len(self.__sequences)):
 
 			# "-i {0}".format(path.join(input_folder, uid + i)),
-			self.__target_files.append(path.join(data_folder, "blasted", self.__uid + i))
+			self.__target_files.append(path.join(data_folder, "blasted", str(self.__uid) + "_" + str(i)))
 
 			seq_param = [
-				"-p blastp",
-				"-d {0}".format(path.join(data_folder, "BLAST", "DATABASE99.fasta")),
-				"-o {2}".format(self.__target_files[i]),
-				"-a 2",
-				"-m {0}".format(7) #XML Format
+				"-p", "blastp",
+				"-d", "{0}".format(path.join(data_folder, "BLAST", "DATABASE99.fasta")),
+				"-o", "{0}".format(self.__target_files[i]),
+				"-a2",
+				"-m7" #XML Format
 			]
-			if self.__e_value != "":
-				seq_param.append("-e {0}".format(self.__e_value))
-			if self.__max_hits != "":
-				seq_param.append("-v {0}".format(self.__max_hits))
+			seq_param.append("-e{0}".format(self.__e_value))
+			seq_param.append("-v{0}".format(self.__max_hits))
 			parameter_list.append(seq_param)
 			if i >= MAX_BLAST:
 				break
@@ -117,6 +138,14 @@ class BLASTSearch(object):
 		return self.__sequences, parameter_list
 
 	def get_local_status(self):
+		"""Gets status of a blast run acting locally.
+
+			Return:
+				BLASTStatus enum holding status.
+			"""
+		if self.error_state:
+			return BLASTStatus.ERROR
+
 		files_made = 0
 		for file_path in self.__target_files:
 			if path.exists(file_path):
@@ -128,6 +157,14 @@ class BLASTSearch(object):
 		return self.run_status
 
 	def get_remote_status(self):
+		"""Gets status of a BLAST run on the remote server associated with this search.
+
+			Return:
+				BLASTStatus enum holding status.
+			"""
+		if self.error_state:
+			return BLASTStatus.ERROR
+
 		req = requests.get(self.__remote_location, params={"uid" : self.__uid})
 		self.run_status = jsonpickle.decode(req.text)
 		return self.run_status
@@ -142,12 +179,26 @@ class BLASTSearch(object):
 				JSON Object holding a dictionary of returned data (including files).
 			"""
 		# Placeholder
-		request_data = {}
+		print(str(self.__sequences[0].seq))
+		request_data = {
+			"job_name": self.__job_name,
+			"uuid": self.__uid,
+			"e_value": self.__e_value,
+			"max_hits": self.__max_hits,
+			"sequence": str(self.__sequences[0].seq)
+		}
+		print(request_data)
 		self.__remote_location = remote_url
 		req = requests.get(remote_url, params=request_data)
+		print(req)
 		return jsonpickle.decode(req.text)
 
 	def return_files(self):
+		"""Gets final result of BLAST runs.
+
+			Return:
+				Dictionary with error status and (if successful) a list of NCBIXML Biopython objects.
+			"""
 		if self.run_status != BLASTStatus.COMPLETE:
 			return {"error_status": True, "error_message": "BLAST Run Incomplete"}
 
@@ -256,11 +307,9 @@ class TAEDSearch(object):
 		#TODO: Address JSON Pickle doubling in a better manner.
 		req = requests.get(remote_url, params=request_data)
 		r_temp = jsonpickle.decode(req.text)
-		align_lengths = {}
 		for gene in r_temp:
-			if type(r_temp[gene]) is dict:
+			if isinstance(r_temp[gene], dict):
 				r_temp[gene]["Alignment"].fix_bad_pickle()
-		for key in align_lengths:
-			r_temp[key] = align_lengths[key]
+
 
 		return r_temp

@@ -43,7 +43,9 @@ def db_load_old(search_obj):
 		# Conditional clause is built by search data; everything is covered in the two tables
 		#	below in old format.
 		from_clause, where_clause, parameters = search_obj.build_conditional()
-		c.execute("SELECT * FROM gimap" +
+		c.execute("SELECT DISTINCT baseDirectory, Directory, familyName" +
+					", interleafed, nhxRooted, reconciledTree" +
+					" FROM gimap " +
 					" INNER JOIN taedfile ON gimap.taedFileNumber = taedfile.taedFileNumber" +
 					from_clause + where_clause, parameters)
 	except:
@@ -51,6 +53,7 @@ def db_load_old(search_obj):
 		gene_dict["error_message"] = "There was an error getting your results from the db."
 		log.error("DB Connection Problem: %s", sys.exc_info())
 	try:
+		print(c.rowcount)
 		for gene in c:
 			# Alignment / Tree info is stored in flat files in location given by db fields.
 			path = os.path.join(CONF["flat_file"], gene["baseDirectory"], gene["Directory"])
