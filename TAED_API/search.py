@@ -8,7 +8,7 @@
     """
 
 import json
-import os
+from os import path
 import sys
 import logging
 import urllib
@@ -16,14 +16,14 @@ import MySQLdb
 import jsonpickle
 
 from ruamel import yaml
-from flask import Flask
 from flask import request
 
-import TAEDStruct
-from TAEDSearch import TAEDSearch
+from TAED_API.TAEDStruct import Alignment, GeneTree, ReconciledTree
+from TAED_API.TAEDSearch import TAEDSearch
 
-APP = Flask(__name__)
-CONF = yaml.safe_load(open('config.yaml', 'r+'))
+from TAED_API import APP
+
+CONF = yaml.safe_load(open(path.join("TAED_API", "config.yaml"), 'r+'))
 
 def db_load_old(search_obj):
 	"""Load records from the database (Old Structure) into a dictionary for handling and returning.
@@ -56,21 +56,21 @@ def db_load_old(search_obj):
 		print(c.rowcount)
 		for gene in c:
 			# Alignment / Tree info is stored in flat files in location given by db fields.
-			path = os.path.join(CONF["flat_file"], gene["baseDirectory"], gene["Directory"])
+			path = path.join(CONF["flat_file"], gene["baseDirectory"], gene["Directory"])
 
 			# Auto-load the files into our extensions of BioPython objects.
 			gene_dict[gene["familyName"]] = {
 				"Alignment":
-					TAEDStruct.Alignment(
-						os.path.join(path, gene["interleafed"])
+					Alignment(
+						path.join(path, gene["interleafed"])
 						) if gene["interleafed"] != None else None,
 				"Gene Tree":
-					TAEDStruct.GeneTree(
-						os.path.join(path, gene["nhxRooted"])
+					GeneTree(
+						path.join(path, gene["nhxRooted"])
 						) if gene["nhxRooted"] != None else None,
 				"Reconciled Tree" :
-					TAEDStruct.ReconciledTree(
-						os.path.join(path, gene["reconciledTree"]))
+					ReconciledTree(
+						path.join(path, gene["reconciledTree"]))
 			}
 			gene_dict["familyNameLen"] = str(len(gene_dict[gene["familyName"]]["Alignment"].temp_return_alignment()))	# pylint: disable=C0301
 		gene_dict["error_state"] = False

@@ -4,15 +4,16 @@
 	"""
 import sys
 import logging
+from os import path
 
 import jsonpickle
 import MySQLdb
 
 from ruamel import yaml
-from flask import Flask
 
-APP = Flask(__name__)
-CONF = yaml.safe_load(open('config.yaml', 'r+'))
+from TAED_API import APP
+
+CONF = yaml.safe_load(open(path.join("TAED_API", "config.yaml"), 'r+'))
 
 def db_load_old():
 	""" Get list of KEGG records into a dictionary for future use in searching."""

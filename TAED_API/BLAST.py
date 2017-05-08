@@ -15,13 +15,13 @@ import shelve
 
 import jsonpickle
 from ruamel import yaml
-from flask import Flask
 from flask import request
 
-from TAEDSearch import BLASTSearch, BLASTStatus
+from TAED_API.TAEDSearch import BLASTSearch, BLASTStatus
 
-APP = Flask(__name__)
-CONF = yaml.safe_load(open('config.yaml', 'r+'))
+from TAED_API import APP
+
+CONF = yaml.safe_load(open(path.join("TAED_API", "config.yaml"), 'r+'))
 
 def run_blast(b_search):
 	"""Runs a BLAST search using utility.
