@@ -60,15 +60,19 @@ class BLASTSearch(object):
 	__uid = None
 	__remote_location = ""
 	__target_files = []
+	__dn_ds_filter = False
 	error_state = True
 	error_message = "Unitialized"
 	run_status = BLASTStatus.UNITIALIZED
 
 	def __init__(self, uuid=uuid4(), job_name="BLAST Search", e_value="1.0", max_hits="50", #pylint: disable=too-many-arguments
-					seq_obj=None, sequence="", file_data=None, file_name=""):
+					dn_ds="N", seq_obj=None, sequence="", file_data=None, file_name=""):
 		self.__job_name = job_name
 		self.__uid = uuid
 		self.error_state = True
+
+		if dn_ds == "Y":
+			self.__dn_ds_filter = True
 
 		try:
 			self.__e_value = float(e_value)
@@ -226,11 +230,12 @@ class TAEDSearch(object):
 	__min_taxa = None
 	__max_taxa = None
 	__kegg_pathway = None
+	__p_selection_only = False
 	error_state = False
 	error_message = None
 
 	def __init__(self, gi="", species="", gene="",
-					min_taxa="", max_taxa="", kegg_pathway=""):
+					min_taxa="", max_taxa="", kegg_pathway="", dn_ds=False):
 		self.error_state = False
 		self.error_message = None
 		self.__gi = gi
@@ -239,6 +244,7 @@ class TAEDSearch(object):
 		self.__kegg_pathway = kegg_pathway
 		self.__min_taxa = min_taxa
 		self.__max_taxa = max_taxa
+		self.__p_selection_only = dn_ds
 		if ((self.__gi != "") or
 			(self.__species != "") or
 			(self.__gene != "") or
@@ -277,6 +283,8 @@ class TAEDSearch(object):
 				cond += " AND (directory BETWEEN %s AND %s)"
 				parameters.append(self.__min_taxa)
 				parameters.append(self.__max_taxa)
+			if (self.__p_selection_only):
+				cond += " AND (positiveRatio = 1)"
 		return from_clause, cond, parameters
 
 	def run_web_query(self, remote_url):

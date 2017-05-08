@@ -118,7 +118,8 @@ def taed_search():
 									gene=request.form['gene'],
 									min_taxa=request.form['min_taxa'],
 									max_taxa=request.form['max_taxa'],
-									kegg_pathway=request.form['kegg_pathway'])
+									kegg_pathway=request.form['kegg_pathway'],
+									dn_ds=request.form['dn_ds'])
 		else:
 			# GET does work.
 			user_query = TAEDSearch(gi=request.args.get('gi_number', ''),
@@ -126,7 +127,8 @@ def taed_search():
 									gene=urllib.parse.unquote_plus(request.args.get('gene', '')),
 									min_taxa=request.args.get('min_taxa', ''),
 									max_taxa=request.args.get('max_taxa', ''),
-									kegg_pathway=urllib.parse.unquote_plus(request.args.get('kegg_pathway', '')))
+									kegg_pathway=urllib.parse.unquote_plus(request.args.get('kegg_pathway', '')),
+									dn_ds=request.args.get('dn_ds', ''))
 	else:
 		return user_data
 	if user_query.error_state:

@@ -7,6 +7,7 @@ Python 3.x (3.5+ should definately work)
 See examples directory for examples of tool usage in python.
 
 Current API Calls Support:
+
 	search.py
 		Search as on the website; using gi number, gene, kegg pathway or species.
 		(Latter three can be limited by min/max taxa)
@@ -18,6 +19,7 @@ Current API Calls Support:
 		Runs BLAST search against TAED data.
 
 Package Requirements:
+
 	Local Call to Server [from TAEDSearch import TAEDSearch, BLASTSearch]
 		requests (pip install requests)
 			Used for calling the API if you want to use the search object.
