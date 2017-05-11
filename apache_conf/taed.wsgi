@@ -1,10 +1,22 @@
-#!/usr/bin/python3
-import os
-from flask import Flask
-from TAED_API import APP
+#!/usr/local/www/taed/pyenv/bin/python3
+#pylint: disable=exec-used,wrong-import-position
 
-os.environ['TAED_CONFIG'] = '/usr/local/www/taed/application.cfg'
+"""WSGI Config for TAEd API
+	Loads python3 virtual environment, then imports and starts flask application.
+	"""
+
+ACTIVATE = '/usr/local/www/taed/pyenv/bin/activate_this.py'
+with open(ACTIVATE) as file_:
+    exec(file_.read(), dict(__file__=ACTIVATE))
+
+import logging
+import sys
+from os import chdir, path
+
+logging.basicConfig(stream=sys.stderr)
+chdir(path.abspath("/usr/local/www/taed/"))
+
+from flask import Flask
+from TAED_API import APP as application
 
 APP = Flask(__name__)
-APP.config.from_object('TAED.default_config')
-APP.config.from_envvar('TAED_CONFIG')

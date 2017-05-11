@@ -6,6 +6,7 @@
 from uuid import uuid4
 import re
 import sys
+import logging
 from os import path, stat
 from io import StringIO
 from enum import Enum
@@ -74,11 +75,14 @@ class BLASTSearch(object):
 		if dn_ds == "Y":
 			self.__dn_ds_filter = True
 
+		log = logging.getLogger("BLAST-Search")
+		log.error("e_value: %s max_hits: %s", e_value, max_hits)
+
 		try:
 			self.__e_value = float(e_value)
 			self.__max_hits = int(max_hits)
 		except ValueError:
-			self.error_message = "Invalid Numeric Parameters (e_value / max_hits)"
+			self.error_message = "Invalid Numeric Parameters (e_value / max_hits):"
 			return
 
 		if seq_obj is not None:
@@ -158,7 +162,7 @@ class BLASTSearch(object):
 		if files_made == len(self.__target_files) and files_made > 0:
 			self.run_status = BLASTStatus.COMPLETE
 
-		return self.run_status
+		return {self.__uid, self.run_status}
 
 	def get_remote_status(self):
 		"""Gets status of a BLAST run on the remote server associated with this search.
@@ -283,7 +287,7 @@ class TAEDSearch(object):
 				cond += " AND (directory BETWEEN %s AND %s)"
 				parameters.append(self.__min_taxa)
 				parameters.append(self.__max_taxa)
-			if (self.__p_selection_only):
+			if self.__p_selection_only:
 				cond += " AND (positiveRatio = 1)"
 		return from_clause, cond, parameters
 

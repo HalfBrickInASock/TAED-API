@@ -23,7 +23,7 @@ from TAED_API.TAEDSearch import TAEDSearch
 
 from TAED_API import APP
 
-CONF = yaml.safe_load(open(path.join("TAED_API", "config.yaml"), 'r+'))
+CONF = yaml.safe_load(open(path.join("config.yaml"), 'r+')) #"TAED_API",
 
 def db_load_old(search_obj):
 	"""Load records from the database (Old Structure) into a dictionary for handling and returning.
@@ -56,28 +56,31 @@ def db_load_old(search_obj):
 		print(c.rowcount)
 		for gene in c:
 			# Alignment / Tree info is stored in flat files in location given by db fields.
-			path = path.join(CONF["flat_file"], gene["baseDirectory"], gene["Directory"])
+			flat_path = path.join(CONF["flat_file"], gene["baseDirectory"], gene["Directory"])
 
 			# Auto-load the files into our extensions of BioPython objects.
 			gene_dict[gene["familyName"]] = {
 				"Alignment":
 					Alignment(
-						path.join(path, gene["interleafed"])
+						path.join(flat_path, gene["interleafed"])
 						) if gene["interleafed"] != None else None,
 				"Gene Tree":
 					GeneTree(
-						path.join(path, gene["nhxRooted"])
+						path.join(flat_path, gene["nhxRooted"])
 						) if gene["nhxRooted"] != None else None,
 				"Reconciled Tree" :
 					ReconciledTree(
-						path.join(path, gene["reconciledTree"]))
+						path.join(flat_path, gene["reconciledTree"]))
 			}
 			gene_dict["familyNameLen"] = str(len(gene_dict[gene["familyName"]]["Alignment"].temp_return_alignment()))	# pylint: disable=C0301
 		gene_dict["error_state"] = False
 	except:
 		gene_dict["error_state"] = True
 		gene_dict["error_message"] = "There was an error with the data returned by the DB."
-		log.error("Data Problem: %s", sys.exc_info())
+		log.error("Data Problem: %s [%s %s %s]", sys.exc_info(), 
+			path.join(flat_path, gene["interleafed"]), 
+			path.join(flat_path, gene["nhxRooted"]), 
+			path.join(flat_path, gene["reconciledTree"]))
 	if db is not None:
 		db.close()
 	return gene_dict

@@ -1,3 +1,6 @@
+""" Flask Init File
+	Core module init file.
+	"""
 from flask import Flask
 APP = Flask(__name__)
 

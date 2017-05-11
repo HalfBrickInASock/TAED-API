@@ -1,2 +1,5 @@
 __pycache__
 TAED.egg-info
+dist
+*.pyc
+.vscode

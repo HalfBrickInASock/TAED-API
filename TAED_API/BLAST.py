@@ -21,7 +21,7 @@ from TAED_API.TAEDSearch import BLASTSearch, BLASTStatus
 
 from TAED_API import APP
 
-CONF = yaml.safe_load(open(path.join("TAED_API", "config.yaml"), 'r+'))
+CONF = yaml.safe_load(open(path.join("config.yaml"), 'r+')) # "TAED_API",
 
 def run_blast(b_search):
 	"""Runs a BLAST search using utility.
@@ -70,10 +70,10 @@ def blast_search():
 		else:
 			# GET.
 			user_query = BLASTSearch(sequence=request.args.get('sequence', ''),
-										job_name=request.args.get("job_name", ''),
+										job_name=request.args.get("job_name", 'BLAST Search'),
 										file_data=request.args.get("file", ''),
-										e_value=request.args.get("e_value", ''),
-										max_hits=request.args.get("max_hits", ''))
+										e_value=request.args.get("e_value", '1.0'),
+										max_hits=request.args.get("max_hits", '50'))
 	else:
 		return user_data
 

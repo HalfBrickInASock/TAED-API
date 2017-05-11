@@ -13,7 +13,7 @@ from ruamel import yaml
 
 from TAED_API import APP
 
-CONF = yaml.safe_load(open(path.join("TAED_API", "config.yaml"), 'r+'))
+CONF = yaml.safe_load(open(path.join("config.yaml"), 'r+')) # "TAED_API",
 
 def db_load_old():
 	""" Get list of KEGG records into a dictionary for future use in searching."""
