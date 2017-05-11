@@ -77,9 +77,9 @@ def db_load_old(search_obj):
 	except:
 		gene_dict["error_state"] = True
 		gene_dict["error_message"] = "There was an error with the data returned by the DB."
-		log.error("Data Problem: %s [%s %s %s]", sys.exc_info(), 
-			path.join(flat_path, gene["interleafed"]), 
-			path.join(flat_path, gene["nhxRooted"]), 
+		log.error("Data Problem: %s [%s %s %s]", sys.exc_info(),
+			path.join(flat_path, gene["interleafed"]),
+			path.join(flat_path, gene["nhxRooted"]),
 			path.join(flat_path, gene["reconciledTree"]))
 	if db is not None:
 		db.close()
@@ -93,7 +93,7 @@ def db_load_new(search_obj, gene_dict):
 		gene_dict -- Dictionary to add search result data to.
 		"""
 	# Stub for now
-	return False
+	return [search_obj, gene_dict]
 
 @APP.route("/search", methods=['GET', 'POST'])
 def taed_search():

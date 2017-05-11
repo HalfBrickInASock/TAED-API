@@ -79,9 +79,11 @@ def blast_search():
 
 	if not user_query.error_state:
 		run_blast(user_query)
+		with shelve.open(path.join(CONF["flat_file"], "blasts", user_query.get_uid() + ".bs")) as search:
+			search[user_query.get_uid()] = user_query
 	else:
 		return jsonpickle.encode(user_query.__dict__)
-	return jsonpickle.encode(user_query.get_local_status())
+	return jsonpickle.encode({user_query.get_uid() : user_query.get_local_status()})
 
 @APP.route("/BLASTStatus", methods=['GET', 'POST'])
 def blast_status():
@@ -101,11 +103,15 @@ def blast_status():
 		return user_data
 
 	if path.exists(path.join(CONF["flat_file"], "blasts", uid + ".bs")):
-		search_shelf = shelve.open(path.join(CONF["flat_file"], "blasts", uid + ".bs"), writeback=True)
-		status = search_shelf[uid].get_local_status()
-		search_shelf[uid].sync()
-		search_shelf.close()
-		return status
+		status = BLASTStatus.ERROR
+		with (shelve.open(path.join(CONF["flat_file"], "blasts", uid + ".bs"))) as search_shelf:
+			# Roundabout way is faster and more memory efficient.
+			temp = search_shelf[uid]
+			status = temp.get_local_status()
+			search_shelf[uid] = temp
+		return jsonpickle.encode(status)
+	else:
+		return user_data
 
 @APP.route("/BLASTResult", methods=['GET', 'POST'])
 def blast_result():
@@ -123,13 +129,14 @@ def blast_result():
 			uid = request.args.get('uid', '')
 	else:
 		return user_data
+	data = None
 
 	if path.exists(path.join(CONF["flat_file"], "blasts", uid + ".bs")):
-		search_shelf = shelve.open(path.join(CONF["flat_file"], "blasts", uid + ".bs"), writeback=True)
-		if search_shelf[uid].get_local_status() == BLASTStatus.COMPLETE:
-			data = search_shelf[uid].return_files()
-		search_shelf[uid].sync()
-		search_shelf.close()
+		with shelve.open(path.join(CONF["flat_file"], "blasts", uid + ".bs")) as search_shelf:
+			temp = search_shelf[uid]
+			if temp.get_local_status() == BLASTStatus.COMPLETE:
+				data = temp.return_files()
+
 	return jsonpickle.encode(data)
 
 if __name__ == "__main__":

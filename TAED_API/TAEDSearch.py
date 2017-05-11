@@ -66,11 +66,13 @@ class BLASTSearch(object):
 	error_message = "Unitialized"
 	run_status = BLASTStatus.UNITIALIZED
 
-	def __init__(self, uuid=uuid4(), job_name="BLAST Search", e_value="1.0", max_hits="50", #pylint: disable=too-many-arguments
+	def __init__(self, uuid=None, job_name="BLAST Search", e_value="1.0", max_hits="50", #pylint: disable=too-many-arguments
 					dn_ds="N", seq_obj=None, sequence="", file_data=None, file_name=""):
 		self.__job_name = job_name
 		self.__uid = uuid
 		self.error_state = True
+		if self.__uid is None:
+			self.__uid = str(uuid4())
 
 		if dn_ds == "Y":
 			self.__dn_ds_filter = True
@@ -117,6 +119,11 @@ class BLASTSearch(object):
 		self.run_status = BLASTStatus.READY
 		return
 
+	def get_uid(self):
+		"""Gets unique identifier for this object.
+			"""
+		return self.__uid
+
 	def build_blastall_params(self, data_folder):
 		"""Builds blastall command line arguments.
 
@@ -159,10 +166,14 @@ class BLASTSearch(object):
 			if path.exists(file_path):
 				if stat(file_path).st_size > 0:
 					files_made += 1
+
+		log = logging.getLogger("BLAST-Search")
+		log.error([self.__target_files, len(self.__target_files), files_made])
+
 		if files_made == len(self.__target_files) and files_made > 0:
 			self.run_status = BLASTStatus.COMPLETE
 
-		return {self.__uid, self.run_status}
+		return self.run_status
 
 	def get_remote_status(self):
 		"""Gets status of a BLAST run on the remote server associated with this search.
@@ -211,6 +222,8 @@ class BLASTSearch(object):
 			return {"error_status": True, "error_message": "BLAST Run Incomplete"}
 
 		blast_hits = []
+		log = logging.getLogger("BLAST-Search")
+		log.error([self.__target_files, len(self.__target_files)])
 		for filename in self.__target_files:
 			with open(filename) as handle:
 				blast_hits.append(NCBIXML.read(handle))
