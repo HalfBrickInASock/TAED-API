@@ -9,7 +9,7 @@ sys.path.insert(0, path.abspath(".."))
 
 # This provides the object to call the API.
 # Also can generate conditional clauses for DB searches, if you have the DB locally.
-from TAEDSearch import TAEDSearch #pylint:disable=import-error
+from TAED_API.TAEDSearch import TAEDSearch #pylint:disable=import-error,C0413
 
 # We can search for nothing, but it will get an error.
 #  (Note: URL here is Flask local because API isn't available anywhere yet)
@@ -66,14 +66,24 @@ if not result["error_state"]:
 # Not much else to do yet - but that's to be next.  (Getting this checked in as a baseline).
 
 # Try a KEGG search!
-t_s = TAEDSearch(min_taxa="10", max_taxa="10", kegg_pathway="ABC transporters")
+t_s = TAEDSearch(min_taxa="10", max_taxa="15", kegg_pathway="ABC transporters")
 result = t_s.run_web_query("http://127.0.0.1:5000/search")
-
-print(t_s.__dict__)
 
 if not result["error_state"]:
 	# No error!
 	print("Kegg Search is going to get a lot more results.")
+	print(result.keys())
+else:
+	print("Oops.")
+	print(result)
+
+# Now limit the KEGG search!
+t_s = TAEDSearch(min_taxa="10", max_taxa="15", kegg_pathway="ABC transporters", dn_ds=True)
+result = t_s.run_web_query("http://127.0.0.1:5000/search")
+
+if not result["error_state"]:
+	# No error!
+	print("Should have fewer results this time.")
 	print(result.keys())
 else:
 	print("Oops.")
