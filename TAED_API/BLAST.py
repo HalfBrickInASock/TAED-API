@@ -12,6 +12,7 @@ from subprocess import Popen, PIPE
 from os import path
 import sys
 import shelve
+import logging
 
 import jsonpickle
 from ruamel import yaml
@@ -22,6 +23,8 @@ from TAED_API.TAEDSearch import BLASTSearch, BLASTStatus
 from TAED_API import APP
 
 CONF = yaml.safe_load(open(path.join("config.yaml"), 'r+')) # "TAED_API",
+
+LOG = logging.getLogger("BLASTQuery")
 
 def run_blast(b_search):
 	"""Runs a BLAST search using utility.
@@ -80,11 +83,17 @@ def blast_search():
 
 	if not user_query.error_state:
 		run_blast(user_query)
-		with shelve.open(path.join(CONF["flat_file"], "blasts", user_query.get_uid() + ".bs")) as search:
-			search[user_query.get_uid()] = user_query
+		uid = user_query.get_uid()
+		status = user_query.get_local_status()
+
+		with (open(path.join(CONF["flat_file"], "blasts", uid + ".bs"), mode="w")) as obj_file:
+			json = jsonpickle.encode(user_query)
+			LOG.error(json)
+			obj_file.write(json)
+
+		return jsonpickle.encode({uid : status})
 	else:
 		return jsonpickle.encode(user_query.__dict__)
-	return jsonpickle.encode({user_query.get_uid() : user_query.get_local_status()})
 
 @APP.route("/BLASTStatus", methods=['GET', 'POST'])
 def blast_status():
@@ -93,26 +102,37 @@ def blast_status():
 		Parameters:
 		uid -- Unique ID of previous search
 		"""
-	# JSON does nothing at moment, will fix.
-	user_data = request.get_json()
-	if user_data is None:
-		if request.method == 'POST':
-			uid = request.form["uid"]
-		else:
-			uid = request.args.get('uid', '')
-	else:
-		return user_data
 
-	if path.exists(path.join(CONF["flat_file"], "blasts", uid + ".bs")):
+	uid = None
+	if request.is_json:
+		# No reason for JSON here
+		return request.data
+	elif request.method == 'POST':
+		uid = request.form["uid"]
+	elif request.method == 'GET':
+		uid = request.args.get('uid', '')
+	else:
+		return jsonpickle.encode({"Invalid Request" : request.data})
+
+	# Need to handle different SHELF db formats.
+	if (path.exists(path.join(CONF["flat_file"], "blasts", uid + ".bs")) or
+			path.exists(path.join(CONF["flat_file"], "blasts", uid + ".bs.dat"))):
 		status = BLASTStatus.ERROR
-		with (shelve.open(path.join(CONF["flat_file"], "blasts", uid + ".bs"))) as search_shelf:
-			# Roundabout way is faster and more memory efficient.
-			temp = search_shelf[uid]
-			status = temp.get_local_status()
-			search_shelf[uid] = temp
+		try:
+			with (open(path.join(CONF["flat_file"], "blasts", uid + ".bs"), mode="r")) as obj_file:
+				# I should be using shelve but it is not working.
+				temp = jsonpickle.decode(obj_file.read())
+				status = temp.get_local_status()
+			with (open(path.join(CONF["flat_file"], "blasts", uid + ".bs"), mode="w")) as obj_file:
+				obj_file.write(jsonpickle.encode(temp))
+		except:
+			LOG.error(sys.exc_info())
+			return jsonpickle.encode({"Error" : sys.exc_info()})
+
 		return jsonpickle.encode(status)
 	else:
-		return user_data
+		LOG.error("Status could not find path %s", path.join(CONF["flat_file"], "blasts", uid + ".bs"))
+		return jsonpickle.encode({"Error" : "No Record Found", "UID" : uid})
 
 @APP.route("/BLASTResult", methods=['GET', 'POST'])
 def blast_result():
@@ -121,23 +141,36 @@ def blast_result():
 		Parameters:
 		uid -- Unique ID of previous search.
 		"""
-	# JSON does nothing at moment, will fix.
-	user_data = request.get_json()
-	if user_data is None:
-		if request.method == 'POST':
-			uid = request.form["uid"]
-		else:
-			uid = request.args.get('uid', '')
+	uid = None
+	if request.is_json:
+		# No reason for JSON here
+		return request.data
+	elif request.method == 'POST':
+		uid = request.form["uid"]
+	elif request.method == 'GET':
+		uid = request.args.get('uid', '')
 	else:
-		return user_data
+		return jsonpickle.encode({"Invalid Request" : request.data})
+
 	data = None
+	# Need to handle different SHELF db formats.
+	if (path.exists(path.join(CONF["flat_file"], "blasts", uid + ".bs")) or
+			path.exists(path.join(CONF["flat_file"], "blasts", uid + ".bs.dat"))):
 
-	if path.exists(path.join(CONF["flat_file"], "blasts", uid + ".bs")):
-		with shelve.open(path.join(CONF["flat_file"], "blasts", uid + ".bs")) as search_shelf:
-			temp = search_shelf[uid]
-			if temp.get_local_status() == BLASTStatus.COMPLETE:
-				data = temp.return_files()
+		# I should be using shelve but it is not working.
+		with (open(path.join(CONF["flat_file"], "blasts", uid + ".bs"), mode="r")) as obj_file:
+			temp = jsonpickle.decode(obj_file.read())
+			status = temp.get_local_status()
+		with (open(path.join(CONF["flat_file"], "blasts", uid + ".bs"), mode="w")) as obj_file:
+			obj_file.write(jsonpickle.encode(temp))
 
+		if status == BLASTStatus.COMPLETE:
+			data = temp.return_files()
+		else:
+			return jsonpickle.encode({"Error" : "BLAST Not Complete", "uid" : uid, "Status" : status})
+	else:
+		LOG.error("Return could not find path %s", path.join(CONF["flat_file"], "blasts", uid + ".bs"))
+		return jsonpickle.encode({"Error" : "No Record Found", "UID" : uid})
 	return jsonpickle.encode(data)
 
 if __name__ == "__main__":
