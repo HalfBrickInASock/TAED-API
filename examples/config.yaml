@@ -1,0 +1,10 @@
+---
+# Server setup configuration
+db:
+  host: "localhost"
+  user: "root"
+  pass: "H6ih2PcqGwy4WjpmRwHZ"
+  old_db: "TAED"
+  new_db: "TAED_LIGHT"
+flat_file: "/media/sorotassu/Bulk/TAED2/"
+upload_folder: "/media/sorotassu/Bulk/TAED2/uploads/"

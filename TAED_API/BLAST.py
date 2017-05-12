@@ -57,25 +57,26 @@ def blast_search():
 		hits -- Maximum # of results to return.
 		"""
 	user_query = None
-	# JSON does nothing at moment, will fix.
-	user_data = request.get_json()
-	if user_data is None:
-		if request.method == 'POST':
-			# This doesn't work, I'm not sure why.
-			user_query = BLASTSearch(sequence=request.form["sequence"],
-										job_name=request.form["job_name"],
-										file_data=request.form["file"],
-										e_value=request.form["e_value"],
-										max_hits=request.form["max_hits"])
-		else:
-			# GET.
-			user_query = BLASTSearch(sequence=request.args.get('sequence', ''),
-										job_name=request.args.get("job_name", 'BLAST Search'),
-										file_data=request.args.get("file", ''),
-										e_value=request.args.get("e_value", '1.0'),
-										max_hits=request.args.get("max_hits", '50'))
+	if request.is_json:
+		# JSON currently requires jsonpickle style encoding.
+		# Will work to extend when I fix the class instantiation.
+		user_query = jsonpickle.decode(request.data)
+	elif request.method == 'POST':
+		# All fields required in POST (default if you don't want them)
+		user_query = BLASTSearch(sequence=request.form["sequence"],
+									job_name=request.form["job_name"],
+									file_data=request.form["file"],
+									e_value=request.form["e_value"],
+									max_hits=request.form["max_hits"])
+	elif request.method == "GET":
+		# GET.
+		user_query = BLASTSearch(sequence=request.args.get('sequence', ''),
+									job_name=request.args.get("job_name", 'BLAST Search'),
+									file_data=request.args.get("file", ''),
+									e_value=request.args.get("e_value", '1.0'),
+									max_hits=request.args.get("max_hits", '50'))
 	else:
-		return user_data
+		return request.data
 
 	if not user_query.error_state:
 		run_blast(user_query)

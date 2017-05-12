@@ -111,31 +111,35 @@ def taed_search():
 		max_taxa -- Maximum # of taxa for gene.
 		kegg_pathway -- Name of KEGG Pathway to filter for genes.
 		"""
-	# JSON does nothing at moment, will fix.
-	user_data = request.get_json()
-	if user_data is None:
-		if request.method == 'POST':
-			# This doesn't work, I'm not sure why.
-			user_query = TAEDSearch(gi=request.form['gi_number'],
-									species=request.form['species'],
-									gene=request.form['gene'],
-									min_taxa=request.form['min_taxa'],
-									max_taxa=request.form['max_taxa'],
-									kegg_pathway=request.form['kegg_pathway'],
-									dn_ds=request.form['dn_ds'])
-		else:
-			# GET does work.
-			user_query = TAEDSearch(gi=request.args.get('gi_number', ''),
-									species=urllib.parse.unquote_plus(request.args.get('species', '')),
-									gene=urllib.parse.unquote_plus(request.args.get('gene', '')),
-									min_taxa=request.args.get('min_taxa', ''),
-									max_taxa=request.args.get('max_taxa', ''),
-									kegg_pathway=urllib.parse.unquote_plus(request.args.get('kegg_pathway', '')),
-									dn_ds=request.args.get('dn_ds', ''))
+	user_query = None
+	if request.is_json:
+		# JSON currently requires jsonpickle style encoding.
+		# Will work to extend when I fix the class instantiation.
+		user_query = jsonpickle.decode(request.data)
+	elif request.method == 'POST':
+		# This works too, you just have to pass all things
+		user_query = TAEDSearch(gi=request.form['gi_number'],
+								species=request.form['species'],
+								gene=request.form['gene'],
+								min_taxa=request.form['min_taxa'],
+								max_taxa=request.form['max_taxa'],
+								kegg_pathway=request.form['kegg_pathway'],
+								dn_ds=request.form['dn_ds'])
 	else:
-		return user_data
-	if user_query.error_state:
-		return json.dumps(user_query.__dict__)
+		# GET does work.
+		user_query = TAEDSearch(gi=request.args.get('gi_number', ''),
+								species=urllib.parse.unquote_plus(request.args.get('species', '')),
+								gene=urllib.parse.unquote_plus(request.args.get('gene', '')),
+								min_taxa=request.args.get('min_taxa', ''),
+								max_taxa=request.args.get('max_taxa', ''),
+								kegg_pathway=urllib.parse.unquote_plus(request.args.get('kegg_pathway', '')),
+								dn_ds=request.args.get('dn_ds', ''))
+
+	try:
+		if user_query.error_state:
+			return json.dumps(user_query.__dict__)
+	except TypeError:
+		return jsonpickle.encode({"error" : "JSON Format Invalid"})
 
 	return jsonpickle.encode(db_load_old(user_query))
 
