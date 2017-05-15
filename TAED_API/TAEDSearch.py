@@ -54,13 +54,14 @@ class BLASTSearch(object):
 		file_name -- Name of a file (useful locally).
 		"""
 	__job_name = "BLAST Search"
+	__run_count = 0
 	__sequences = []
 	__e_value = None
 	__max_hits = None
 	__seq_re = re.compile(r"^[ABCDEFGHIKLMNPQRSTUVWYZX\*\-\n\r]+$")
 	__uid = None
+	__data_folder = ""
 	__remote_location = ""
-	__target_files = []
 	__dn_ds_filter = False
 	error_state = True
 	error_message = "Unitialized"
@@ -131,16 +132,17 @@ class BLASTSearch(object):
 			data_folder -- Root folder for flat file manipulation (output, BLAST db, etc).
 			"""
 		parameter_list = []
+		self.__data_folder = data_folder
 
 		for i in range(len(self.__sequences)):
 
 			# "-i {0}".format(path.join(input_folder, uid + i)),
-			self.__target_files.append(path.join(data_folder, "blasted", str(self.__uid) + "_" + str(i)))
+			file_path = path.join(data_folder, "blasted", str(self.__uid) + "_" + str(i))
 
 			seq_param = [
 				"-p", "blastp",
 				"-d", "{0}".format(path.join(data_folder, "BLAST", "DATABASE99.fasta")),
-				"-o", "{0}".format(self.__target_files[i]),
+				"-o", "{0}".format(file_path),
 				"-a2",
 				"-m7" #XML Format
 			]
@@ -162,15 +164,13 @@ class BLASTSearch(object):
 			return BLASTStatus.ERROR
 
 		files_made = 0
-		for file_path in self.__target_files:
+		for i in range(0, self.__run_count):
+			file_path = path.join(self.__data_folder, "blasted", str(self.__uid) + "_" + str(i))
 			if path.exists(file_path):
 				if stat(file_path).st_size > 0:
 					files_made += 1
 
-		log = logging.getLogger("BLAST-Search")
-		log.error([self.__target_files, len(self.__target_files), files_made])
-
-		if files_made == len(self.__target_files) and files_made > 0:
+		if files_made == self.__run_count and files_made > 0:
 			self.run_status = BLASTStatus.COMPLETE
 
 		return self.run_status
@@ -222,10 +222,10 @@ class BLASTSearch(object):
 			return {"error_status": True, "error_message": "BLAST Run Incomplete"}
 
 		blast_hits = []
-		log = logging.getLogger("BLAST-Search")
-		log.error([self.__target_files, len(self.__target_files)])
-		for filename in self.__target_files:
-			with open(filename) as handle:
+
+		for i in range(0, self.__run_count):
+			file_path = path.join(self.__data_folder, "blasted", str(self.__uid) + "_" + str(i))
+			with open(file_path) as handle:
 				blast_hits.append(NCBIXML.read(handle))
 		return {"error_status": False, "blast_hits": blast_hits}
 

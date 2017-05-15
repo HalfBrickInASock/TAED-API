@@ -70,7 +70,8 @@ def db_load_old(search_obj):
 						) if gene["nhxRooted"] != None else None,
 				"Reconciled Tree" :
 					ReconciledTree(
-						path.join(flat_path, gene["reconciledTree"]))
+						path.join(flat_path, gene["reconciledTree"])
+						) if gene["reconciledTree"] != None else None,
 			}
 			gene_dict["familyNameLen"] = str(len(gene_dict[gene["familyName"]]["Alignment"].temp_return_alignment()))	# pylint: disable=C0301
 		gene_dict["error_state"] = False
