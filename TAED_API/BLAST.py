@@ -42,7 +42,10 @@ def run_blast(b_search):
 	for i in range(len(seq_data)): #pylint:disable=consider-using-enumerate
 		try:
 			seq_run.append(Popen(["blastall"] + param_list[i], stdin=PIPE, stdout=blast_record))
-			seq_run[i].stdin.write(str(seq_data[i].seq).encode('utf-8'))
+			seq_run[i].stdin.writelines(
+				seq_data[i].Name.encode('utf-8'),
+				str(seq_data[i].seq).encode('utf-8')
+			)
 			seq_run[i].stdin.close()
 		except: #pylint:disable=bare-except
 			b_search.run_status = BLASTStatus.ERROR

@@ -75,8 +75,9 @@ class BLASTSearch(object):
 		if self.__uid is None:
 			self.__uid = str(uuid4())
 
-		if dn_ds == "Y":
-			self.__dn_ds_filter = True
+		if file_data == "": file_data = None
+
+		if dn_ds == "Y": self.__dn_ds_filter = True
 
 		log = logging.getLogger("BLAST-Search")
 		log.error("e_value: %s max_hits: %s", e_value, max_hits)
@@ -107,7 +108,7 @@ class BLASTSearch(object):
 			handle = None
 			if file_data is not None:
 				handle = StringIO.read(open(file_data))
-			elif file_name is not None:
+			elif file_name != "":
 				handle = open(file_name, "rU")
 			else:
 				self.error_message = "A sequence or FASTA file must be sent."
@@ -118,6 +119,7 @@ class BLASTSearch(object):
 
 		self.error_state = False
 		self.run_status = BLASTStatus.READY
+		self.__run_count = len(self.__sequences)
 		return
 
 	def get_uid(self):
@@ -226,7 +228,8 @@ class BLASTSearch(object):
 		for i in range(0, self.__run_count):
 			file_path = path.join(self.__data_folder, "blasted", str(self.__uid) + "_" + str(i))
 			with open(file_path) as handle:
-				blast_hits.append(NCBIXML.read(handle))
+				for record in NCBIXML.parse(handle):
+					blast_hits.append(record)
 		return {"error_status": False, "blast_hits": blast_hits}
 
 class TAEDSearch(object):
