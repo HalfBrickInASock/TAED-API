@@ -6,5 +6,5 @@
   "editor.detectIndentation": false,
 
   // Pylint Issue
-  "python.linting.pylintPath": "/usr/bin/pylint3"
+  "python.linting.pylintPath": "/usr/local/venvs/taed/bin/pylint"
 }
