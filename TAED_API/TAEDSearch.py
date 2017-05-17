@@ -22,10 +22,10 @@ MAX_BLAST = 5
 class BLASTStatus(Enum):
 	"""Enum for status of BLAST run.
 		"""
-	ERROR = -1,
-	UNITIALIZED = 0,
-	READY = 1,
-	IN_PROGRESS = 2,
+	ERROR = -1
+	UNITIALIZED = 0
+	READY = 1
+	IN_PROGRESS = 2
 	COMPLETE = 4
 
 class BLASTSearch(object):
@@ -138,13 +138,15 @@ class BLASTSearch(object):
 
 		for i in range(len(self.__sequences)):
 
-			# "-i {0}".format(path.join(input_folder, uid + i)),
-			file_path = path.join(data_folder, "blasted", str(self.__uid) + "_" + str(i))
+			output_path = path.join(data_folder, "blasted", str(self.__uid) + "_" + str(i))
+			input_path = path.join(data_folder, "blasts", str(self.__uid) + "_" + str(i) + ".fasta")
+			SeqIO.write(self.__sequences[i], input_path, "fasta")
 
 			seq_param = [
 				"-p", "blastp",
+				"-i", "{0}".format(input_path),
 				"-d", "{0}".format(path.join(data_folder, "BLAST", "DATABASE99.fasta")),
-				"-o", "{0}".format(file_path),
+				"-o", "{0}".format(output_path),
 				"-a2",
 				"-m7" #XML Format
 			]

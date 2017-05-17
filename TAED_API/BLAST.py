@@ -8,7 +8,7 @@
 	blast_result -- Handles call to get BLAST search result.
 	"""
 
-from subprocess import Popen, PIPE
+from subprocess import Popen
 from os import path
 import sys
 import shelve
@@ -41,12 +41,7 @@ def run_blast(b_search):
 
 	for i in range(len(seq_data)): #pylint:disable=consider-using-enumerate
 		try:
-			seq_run.append(Popen(["blastall"] + param_list[i], stdin=PIPE, stdout=blast_record))
-			seq_run[i].stdin.writelines(
-				seq_data[i].Name.encode('utf-8'),
-				str(seq_data[i].seq).encode('utf-8')
-			)
-			seq_run[i].stdin.close()
+			seq_run.append(Popen(["blastall"] + param_list[i], stdin=None, stdout=blast_record))
 		except: #pylint:disable=bare-except
 			b_search.run_status = BLASTStatus.ERROR
 			b_search.error_message = str(sys.exc_info())
@@ -86,17 +81,15 @@ def blast_search():
 
 	if not user_query.error_state:
 		run_blast(user_query)
+
 		uid = user_query.get_uid()
-		status = user_query.get_local_status()
 
 		with (open(path.join(CONF["flat_file"], "blasts", uid + ".bs"), mode="w")) as obj_file:
 			json = jsonpickle.encode(user_query)
 			LOG.error(json)
 			obj_file.write(json)
 
-		return jsonpickle.encode({uid : status})
-	else:
-		return jsonpickle.encode(user_query.__dict__)
+	return jsonpickle.encode(user_query)
 
 @APP.route("/BLASTStatus", methods=['GET', 'POST'])
 def blast_status():
