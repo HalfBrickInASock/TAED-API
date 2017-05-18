@@ -1,4 +1,5 @@
-"""Object to handle TAED Searches.
+"""@package TAED_API
+	Object to handle TAED Searches.
 
     Classes:
     TAEDSearch -- Object handling data for a requested search.
@@ -293,10 +294,10 @@ class TAEDSearch(object):
 		else:
 			if self.__species != "":
 				cond += " AND (species LIKE %s)"
-				parameters.append(self.__species)
+				parameters.append("%" + self.__species + "%")
 			if self.__gene != "":
 				cond += " AND (geneName LIKE %s)"
-				parameters.append(self.__gene)
+				parameters.append("%" + self.__gene + "%")
 			if self.__kegg_pathway != "":
 				from_clause += " INNER JOIN keggMap ON keggMap.gi = gimap.gi"
 				cond += " AND (keggMap.pathName = %s)"

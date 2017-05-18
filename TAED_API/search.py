@@ -1,4 +1,5 @@
-"""JSON API for searching TAED DB
+"""@package TAED_API
+	JSON API for searching TAED DB
 
     Functions:
     db_load_old -- Searches for records in old DB structure.
@@ -45,15 +46,17 @@ def db_load_old(search_obj):
 		from_clause, where_clause, parameters = search_obj.build_conditional()
 		c.execute("SELECT DISTINCT baseDirectory, Directory, familyName" +
 					", interleafed, nhxRooted, reconciledTree" +
-					" FROM gimap " +
+					" FROM gimap" +
 					" INNER JOIN taedfile ON gimap.taedFileNumber = taedfile.taedFileNumber" +
 					from_clause + where_clause, parameters)
+		if c.rowcount == 0:
+			gene_dict["error_state"] = False
+			gene_dict["error_message"] = "There were no results for your query."
 	except:
 		gene_dict["error_state"] = True
 		gene_dict["error_message"] = "There was an error getting your results from the db."
 		log.error("DB Connection Problem: %s", sys.exc_info())
 	try:
-		print(c.rowcount)
 		for gene in c:
 			# Alignment / Tree info is stored in flat files in location given by db fields.
 			flat_path = path.join(CONF["flat_file"], gene["baseDirectory"], gene["Directory"])
@@ -63,18 +66,18 @@ def db_load_old(search_obj):
 				"Alignment":
 					Alignment(
 						path.join(flat_path, gene["interleafed"])
-						) if gene["interleafed"] != None else None,
+						) if gene["interleafed"] else None,
 				"Gene Tree":
 					GeneTree(
 						path.join(flat_path, gene["nhxRooted"])
-						) if gene["nhxRooted"] != None else None,
+						) if gene["nhxRooted"] else None,
 				"Reconciled Tree" :
 					ReconciledTree(
 						path.join(flat_path, gene["reconciledTree"])
-						) if gene["reconciledTree"] != None else None,
+						) if gene["reconciledTree"] else None
 			}
 			gene_dict["familyNameLen"] = str(len(gene_dict[gene["familyName"]]["Alignment"].temp_return_alignment()))	# pylint: disable=C0301
-		gene_dict["error_state"] = False
+			gene_dict["error_state"] = False
 	except:
 		gene_dict["error_state"] = True
 		gene_dict["error_message"] = "There was an error with the data returned by the DB."
