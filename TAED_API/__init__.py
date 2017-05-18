@@ -1,5 +1,5 @@
-""" Flask Init File
-	Core module init file.
+"""@package TAED_API
+	Core module init file.  Configured for Flask.
 	"""
 from flask import Flask
 APP = Flask(__name__)

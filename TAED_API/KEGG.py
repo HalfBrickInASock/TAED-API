@@ -1,4 +1,5 @@
-"""KEGG Pathway Search Module.
+"""@package TAED_API
+	KEGG Pathway Search Module.
 
 	Allows fetching the list of KEGG Pathnames that will work with JSON queries.
 	"""

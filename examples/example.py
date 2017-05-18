@@ -11,10 +11,13 @@ sys.path.insert(0, path.abspath(".."))
 # Also can generate conditional clauses for DB searches, if you have the DB locally.
 from TAED_API.TAEDSearch import TAEDSearch #pylint:disable=import-error,C0413
 
+# URL of the API.
+remote_url = "https://liberles.cst.temple.edu/TAED/json/search"
+
 # We can search for nothing, but it will get an error.
 #  (Note: URL here is Flask local because API isn't available anywhere yet)
 t_s = TAEDSearch()
-result = t_s.run_web_query("http://127.0.0.1:5000/search")
+result = t_s.run_web_query(remote_url)
 
 print('Here is what happens when you search with no (or invalid) data:\n')
 
@@ -30,7 +33,7 @@ if t_s.error_state:
 
 # Now for a valid search.
 t_s = TAEDSearch(gi="349004")
-result = t_s.run_web_query("http://127.0.0.1:5000/search")
+result = t_s.run_web_query(remote_url)
 
 if not result["error_state"]:
 	# No error!
@@ -67,7 +70,7 @@ if not result["error_state"]:
 
 # Try a KEGG search!
 t_s = TAEDSearch(min_taxa="10", max_taxa="15", kegg_pathway="ABC transporters")
-result = t_s.run_web_query("http://127.0.0.1:5000/search")
+result = t_s.run_web_query(remote_url)
 
 if not result["error_state"]:
 	# No error!
@@ -79,7 +82,7 @@ else:
 
 # Now limit the KEGG search!
 t_s = TAEDSearch(min_taxa="10", max_taxa="15", kegg_pathway="ABC transporters", dn_ds=True)
-result = t_s.run_web_query("http://127.0.0.1:5000/search")
+result = t_s.run_web_query(remote_url)
 
 if not result["error_state"]:
 	# No error!

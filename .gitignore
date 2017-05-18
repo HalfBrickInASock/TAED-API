@@ -1,5 +1,9 @@
 __pycache__
-TAED.egg-info
+*.egg-info
 dist
 *.pyc
 .vscode
+.ipynb_checkpoints
+doxygen_sqlite3.db
+documentation/html
+documentation/latex

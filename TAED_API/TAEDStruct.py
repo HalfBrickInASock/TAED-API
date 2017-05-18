@@ -1,4 +1,5 @@
-"""Classes for storing and manipulating phylogenetic data.
+"""@package TAED_API
+	Classes for storing and manipulating phylogenetic data.
 
 	Classes:
 	ReconciledTree -- Handles reconciled gene/species tree data.

@@ -1,4 +1,5 @@
-"""Runs BLAST searches against the TAED DB.
+"""@package TAED_API
+	Runs BLAST searches against the TAED DB.
 	Gets you XML objects of relevant genes / families to further investigate.
 
 	Functions:
