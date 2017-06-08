@@ -66,8 +66,6 @@ if not result["error_state"]:
 		else:
 			print("\n" + key + ":" + str(result[key]))
 
-# Not much else to do yet - but that's to be next.  (Getting this checked in as a baseline).
-
 # Try a KEGG search!
 t_s = TAEDSearch(min_taxa="10", max_taxa="15", kegg_pathway="ABC transporters")
 result = t_s.run_web_query(remote_url)
