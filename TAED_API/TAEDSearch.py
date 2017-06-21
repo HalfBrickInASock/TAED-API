@@ -180,7 +180,7 @@ class BLASTSearch(object):
 
 		return self.run_status
 
-	def get_remote_status(self):
+	def get_remote_status(self, remote_url=None):
 		"""Gets status of a BLAST run on the remote server associated with this search.
 
 			Return:
@@ -189,9 +189,28 @@ class BLASTSearch(object):
 		if self.error_state:
 			return BLASTStatus.ERROR
 
-		req = requests.get(self.__remote_location, params={"uid" : self.__uid})
+		if remote_url is None:
+			remote_url = self.__remote_location + "Status"
+
+		req = requests.get(remote_url, params={"uid" : self.__uid})
 		self.run_status = jsonpickle.decode(req.text)
 		return self.run_status
+
+	def get_remote_data(self, remote_url=None):
+		"""Gets the data of a completed BLAST run.
+
+			Return:
+				Dictionary with error status and (if successful) a list of NCBIXML Biopython objects.
+			"""
+		if self.error_state:
+			return {"error_state": True, "error_message": self.error_message}
+
+		if remote_url is None:
+			remote_url = self.__remote_location + "Result"
+
+		req = requests.get(remote_url, params={"uid" : self.__uid})
+		return jsonpickle.decode(req.text)
+
 
 	def run_web_query(self, remote_url):
 		"""Queries remote webservice with data for BLAST search to get JSON result.
@@ -202,8 +221,6 @@ class BLASTSearch(object):
 			Return:
 				JSON Object holding a dictionary of returned data (including files).
 			"""
-		# Placeholder
-		print(str(self.__sequences[0].seq))
 		request_data = {
 			"job_name": self.__job_name,
 			"uuid": self.__uid,
@@ -211,11 +228,14 @@ class BLASTSearch(object):
 			"max_hits": self.__max_hits,
 			"sequence": str(self.__sequences[0].seq)
 		}
-		print(request_data)
 		self.__remote_location = remote_url
 		req = requests.get(remote_url, params=request_data)
-		print(req)
-		return jsonpickle.decode(req.text)
+		remote = jsonpickle.decode(req.text)
+		if remote.error_state is not True:
+			self = remote
+			self.__remote_location = remote_url
+
+		return self
 
 	def return_files(self):
 		"""Gets final result of BLAST runs.
