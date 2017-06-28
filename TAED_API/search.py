@@ -52,7 +52,7 @@ def db_load_old(search_obj):
 		if c.rowcount == 0:
 			gene_dict["error_state"] = False
 			gene_dict["error_message"] = "There were no results for your query."
-	except:
+	except MySQLdb.Error:
 		gene_dict["error_state"] = True
 		gene_dict["error_message"] = "There was an error getting your results from the db."
 		log.error("DB Connection Problem: %s", sys.exc_info())
@@ -78,9 +78,10 @@ def db_load_old(search_obj):
 			}
 			gene_dict["familyNameLen"] = str(len(gene_dict[gene["familyName"]]["Alignment"].temp_return_alignment()))	# pylint: disable=C0301
 			gene_dict["error_state"] = False
-	except:
+	except FileNotFoundError:
 		gene_dict["error_state"] = True
-		gene_dict["error_message"] = "There was an error with the data returned by the DB."
+		gene_dict["error_message"] = ("We were unable to locate any files."
+										" Please check data files are installed or notify the sysadmin.")
 		log.error("Data Problem: %s [%s %s %s]", sys.exc_info(),
 			path.join(flat_path, gene["interleafed"]),
 			path.join(flat_path, gene["nhxRooted"]),
@@ -116,36 +117,50 @@ def taed_search():
 		kegg_pathway -- Name of KEGG Pathway to filter for genes.
 		"""
 	user_query = None
+	search = None
+
+	# Parse the arguments into a dictionary to pass to constructor.
 	if request.is_json:
-		# JSON currently requires jsonpickle style encoding.
-		# Will work to extend when I fix the class instantiation.
 		user_query = jsonpickle.decode(request.data)
 	elif request.method == 'POST':
-		# This works too, you just have to pass all things
-		user_query = TAEDSearch(gi=request.form['gi_number'],
-								species=request.form['species'],
-								gene=request.form['gene'],
-								min_taxa=request.form['min_taxa'],
-								max_taxa=request.form['max_taxa'],
-								kegg_pathway=request.form['kegg_pathway'],
-								dn_ds=request.form['dn_ds'])
+		# POST requires all form variabless to be passed in some way.
+		user_query = {
+			"gi_number": request.form['gi_number'],
+			"species": request.form['species'],
+			"gene": request.form['gene'],
+			"min_taxa": request.form['min_taxa'],
+			"max_taxa": request.form['max_taxa'],
+			"kegg_pathway": request.form['kegg_pathway'],
+			"dn_ds": request.form['dn_ds']
+		}
 	else:
-		# GET does work.
-		user_query = TAEDSearch(gi=request.args.get('gi_number', ''),
-								species=urllib.parse.unquote_plus(request.args.get('species', '')),
-								gene=urllib.parse.unquote_plus(request.args.get('gene', '')),
-								min_taxa=request.args.get('min_taxa', ''),
-								max_taxa=request.args.get('max_taxa', ''),
-								kegg_pathway=urllib.parse.unquote_plus(request.args.get('kegg_pathway', '')),
-								dn_ds=request.args.get('dn_ds', ''))
+		user_query = {
+			"gi_number": request.args.get('gi_number', ''),
+			"species": urllib.parse.unquote_plus(request.args.get('species', '')),
+			"gene": urllib.parse.unquote_plus(request.args.get('gene', '')),
+			"min_taxa": request.args.get('min_taxa', ''),
+			"max_taxa": request.args.get('max_taxa', ''),
+			"kegg_pathway": urllib.parse.unquote_plus(request.args.get('kegg_pathway', '')),
+			"dn_ds": request.args.get('dn_ds', '')
+		}
+
+	# With a dictionary, call constructor.
+	# If an object already, just use that.
+	# Otherwise, bad JSON.
+	if isinstance(user_query, TAEDSearch):
+		search = user_query
+	elif isinstance(user_query, dict):
+		search = TAEDSearch(user_query)
+	else:
+		return jsonpickle.encode({"error" : "Invalid Call Format"})
 
 	try:
-		if user_query.error_state:
-			return json.dumps(user_query.__dict__)
+		if search.error_state:
+			return json.dumps(search.__dict__)
 	except TypeError:
 		return jsonpickle.encode({"error" : "JSON Format Invalid"})
 
-	return jsonpickle.encode(db_load_old(user_query))
+	return jsonpickle.encode(db_load_old(search))
 
 if __name__ == "__main__":
 	APP.run()

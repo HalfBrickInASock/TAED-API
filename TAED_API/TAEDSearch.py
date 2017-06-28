@@ -7,7 +7,6 @@
 from uuid import uuid4
 import re
 import sys
-import logging
 from os import path, stat
 from io import StringIO
 from enum import Enum
@@ -18,7 +17,17 @@ from Bio.SeqRecord import SeqRecord
 import requests
 import jsonpickle
 
-MAX_BLAST = 5
+from ruamel import yaml
+if path.exists("config.yaml"):
+	CONF = yaml.safe_load(open(path.join("config.yaml"), 'r+'))
+else:
+	CONF = {
+		"defaults": {
+			"max_hits": 50,
+			"e_value" : 1.0,
+			"max_blasts": 5
+		}
+	}
 
 class BLASTStatus(Enum):
 	"""Enum for status of BLAST run.
@@ -54,63 +63,70 @@ class BLASTSearch(object):
 		file_data -- Object holding file contents.
 		file_name -- Name of a file (useful locally).
 		"""
-	__job_name = "BLAST Search"
-	__run_count = 0
-	__sequences = []
-	__e_value = None
-	__max_hits = None
-	__seq_re = re.compile(r"^[ABCDEFGHIKLMNPQRSTUVWYZX\*\-\n\r]+$")
-	__uid = None
+
 	__data_folder = ""
 	__remote_location = ""
-	__dn_ds_filter = False
-	error_state = True
-	error_message = "Unitialized"
-	run_status = BLASTStatus.UNITIALIZED
 
-	def __init__(self, uuid=None, job_name="BLAST Search", e_value="1.0", max_hits="50", #pylint: disable=too-many-arguments
-					dn_ds="N", seq_obj=None, sequence="", file_data=None, file_name=""):
-		self.__job_name = job_name
-		self.__uid = uuid
+	def __init__(self, search, uuid=None):
+
+		# Regular Expression for amino acid sequence.
+		aa_seq = re.compile(r"^[ABCDEFGHIKLMNPQRSTUVWYZX\*\-\n\r]+$")
+
+		# Instance Identification.
+		self.__uid = uuid if uuid is not None else str(uuid4())
+		self.__job_name = search["job_name"] if "job_name" in search else "BLAST Search"
+
+		# Status Management
 		self.error_state = True
-		if self.__uid is None:
-			self.__uid = str(uuid4())
+		self.error_message = "Unitialized"
+		self.run_status = BLASTStatus.UNITIALIZED
 
-		if file_data == "": file_data = None
+		# Location
+		self.__paths = {}
 
-		if dn_ds == "Y": self.__dn_ds_filter = True
-
-		log = logging.getLogger("BLAST-Search")
-		log.error("e_value: %s max_hits: %s", e_value, max_hits)
-
+		# Filtering.
+		# Positive Selection filtering can be:
+		#	positive only (dn_ds = True, Y, y)
+		#	negative only (dn_ds = False, N, n)
+		#	no filtering (dn_ds = anything else)
+		# e_value and max_hits are basic, numeric BLAST parameters.
+		self.__limits = {}
+		if "dn_ds" in search:
+			if search["dn_ds"] in ["Y", "y", "True"]:
+				self.__limits["dn_ds_filter"] = True
+			elif search["dn_ds"] in ["N", "n", "False"]:
+				self.__limits["dn_ds_filter"] = False
 		try:
-			self.__e_value = float(e_value)
-			self.__max_hits = int(max_hits)
+			self.__limits["dn_ds_filter"] = \
+				float(search["e_value"]) if "e_value" in search else CONF["defaults"]["e_value"]
+			self.__limits["max_hits"] = \
+				int(search["max_hits"]) if "max_hits" in search else CONF["defaults"]["max_hits"]
 		except ValueError:
 			self.error_message = "Invalid Numeric Parameters (e_value / max_hits):"
 			return
 
-		if seq_obj is not None:
+		# Handles Blast Sequence Object.
+		if "seq_obj" in search:
 			try:
 				# Needs to be a list of Sequence Records
-				self.__sequences = jsonpickle.decode(seq_obj)
+				self.__sequences = jsonpickle.decode(search["seq_obj"])
 			except ValueError:
 				self.error_message = "Invalid Sequence Object: {0}".format(sys.exc_info())
 				return
-		elif sequence != "":
-			if self.__seq_re.match(sequence) is None:
-				self.error_message = "Submitted sequence (" + sequence + ") is not a valid sequence."
+		elif "sequence" in search:
+			if aa_seq.match(search["sequence"]) is None:
+				self.error_message = "Submitted sequence (" + search["sequence"] + ") is not a valid sequence."
 				return
-			else:
-				t_seq = Seq(str(sequence))
-				t_seqrec = SeqRecord(t_seq, id=self.__job_name)
-				self.__sequences.append(t_seqrec)
+
+			t_seq = Seq(str(search["sequence"]))
+			t_seqrec = SeqRecord(t_seq, id=self.__job_name)
+			self.__sequences = [t_seqrec]
 		else:
 			handle = None
-			if file_data is not None:
-				handle = StringIO.read(open(file_data))
-			elif file_name != "":
-				handle = open(file_name, "rU")
+			if "file_data" in search:
+				handle = StringIO.read(open(search["file_data"]))
+			elif "file_name" in search:
+				handle = open(search["file_name"], "rU")
 			else:
 				self.error_message = "A sequence or FASTA file must be sent."
 				return
@@ -120,7 +136,6 @@ class BLASTSearch(object):
 
 		self.error_state = False
 		self.run_status = BLASTStatus.READY
-		self.__run_count = len(self.__sequences)
 		return
 
 	def get_uid(self):
@@ -151,10 +166,10 @@ class BLASTSearch(object):
 				"-a2",
 				"-m7" #XML Format
 			]
-			seq_param.append("-e{0}".format(self.__e_value))
-			seq_param.append("-v{0}".format(self.__max_hits))
+			seq_param.append("-e{0}".format(self.__limits["e_value"]))
+			seq_param.append("-v{0}".format(self.__limits["max_hits"]))
 			parameter_list.append(seq_param)
-			if i >= MAX_BLAST:
+			if i >= CONF["defaults"]["max_blasts"]:
 				break
 
 		return self.__sequences, parameter_list
@@ -169,13 +184,13 @@ class BLASTSearch(object):
 			return BLASTStatus.ERROR
 
 		files_made = 0
-		for i in range(0, self.__run_count):
+		for i in range(0, len(self.__sequences)):
 			file_path = path.join(self.__data_folder, "blasted", str(self.__uid) + "_" + str(i))
 			if path.exists(file_path):
 				if stat(file_path).st_size > 0:
 					files_made += 1
 
-		if files_made == self.__run_count and files_made > 0:
+		if files_made == len(self.__sequences) and files_made > 0:
 			self.run_status = BLASTStatus.COMPLETE
 
 		return self.run_status
@@ -224,8 +239,8 @@ class BLASTSearch(object):
 		request_data = {
 			"job_name": self.__job_name,
 			"uuid": self.__uid,
-			"e_value": self.__e_value,
-			"max_hits": self.__max_hits,
+			"e_value": self.__limits["e_value"],
+			"max_hits": self.__limits["max_hits"],
 			"sequence": str(self.__sequences[0].seq)
 		}
 		self.__remote_location = remote_url
@@ -248,7 +263,7 @@ class BLASTSearch(object):
 
 		blast_hits = []
 
-		for i in range(0, self.__run_count):
+		for i in range(0, len(self.__sequences)):
 			file_path = path.join(self.__data_folder, "blasted", str(self.__uid) + "_" + str(i))
 			with open(file_path) as handle:
 				for record in NCBIXML.parse(handle):
@@ -273,21 +288,33 @@ class TAEDSearch(object):
 	__min_taxa = None
 	__max_taxa = None
 	__kegg_pathway = None
-	__p_selection_only = False
+	__p_selection = None
 	error_state = False
 	error_message = None
 
-	def __init__(self, gi="", species="", gene="",
-					min_taxa="", max_taxa="", kegg_pathway="", dn_ds=False):
+	def __init__(self, search):
 		self.error_state = False
 		self.error_message = None
-		self.__gi = gi
-		self.__species = species
-		self.__gene = gene
-		self.__kegg_pathway = kegg_pathway
-		self.__min_taxa = min_taxa
-		self.__max_taxa = max_taxa
-		self.__p_selection_only = dn_ds
+
+		# Basic Assignments from Dictionary
+		self.__gi = 		search["gi_number"] if "gi_number" in search else ""	# pylint: disable=C0326
+		self.__species = 	search["species"] 	if "species" in search 	else ""		# pylint: disable=C0326
+		self.__gene = 		search["gene"] 		if "gene" in search 	else ""		# pylint: disable=C0326
+		self.__min_taxa = 	search["min_taxa"] 	if "min_taxa" in search else ""		# pylint: disable=C0326
+		self.__max_taxa = 	search["max_taxa"] 	if "max_taxa" in search else ""		# pylint: disable=C0326
+		self.__kegg_pathway = search["kegg_pathway"] if "kegg_pathway" in search else ""
+
+		# Selection filtering can be:
+		#	positive only (dn_ds = True, Y, y)
+		#	negative only (dn_ds = False, N, n)
+		#	no filtering (dn_ds = anything else)
+		self.__p_selection = None
+		if "dn_ds" in search:
+			if search["dn_ds"] in ["Y", "y", "True"]:
+				self.__p_selection = True
+			if search["dn_ds"]  in ["N", "n", "False"]:
+				self.__p_selection = False
+
 		if ((self.__gi != "") or
 			(self.__species != "") or
 			(self.__gene != "") or
@@ -326,8 +353,11 @@ class TAEDSearch(object):
 				cond += " AND (directory BETWEEN %s AND %s)"
 				parameters.append(self.__min_taxa)
 				parameters.append(self.__max_taxa)
-			if self.__p_selection_only:
-				cond += " AND (positiveRatio = 1)"
+			if self.__p_selection is not None:
+				if self.__p_selection:
+					cond += " AND (positiveRatio = 1)"
+				else:
+					cond += " AND (positiveRatio != 1)"
 		return from_clause, cond, parameters
 
 	def run_web_query(self, remote_url):

@@ -12,7 +12,7 @@ sys.path.insert(0, path.join(path.abspath("..")))
 
 # This provides the object to call the API.
 # Also can generate conditional clauses for DB searches, if you have the DB locally.
-from TAED_API.TAEDSearch import TAEDSearch #pylint:disable=import-error,C0413
+from TAED_API.TAEDSearch import TAEDSearch, BLASTSearch, BLASTStatus #pylint:disable=import-error,C0413
 
 remote_url = "http://127.0.0.1:5000/posteddata"
 
@@ -39,5 +39,18 @@ print(ret.status_code)
 print(ret.reason)
 
 handle = open("jr.txt", "w")
+handle.write(ret.text)
+handle.close()
+ret = None
+
+# BLAST Tests
+b_search = BLASTSearch(e_value=10, max_hits=50,
+						sequence="MRPGIDSTDNAGRKGAAINANEAMLTAALLSCALLLALPATQGAQMGLAP")
+ret = requests.post(remote_url, headers=head, data=jsonpickle.encode(b_search))
+print(ret.status_code)
+print(ret.reason)
+
+
+handle = open("blast.txt", "w")
 handle.write(ret.text)
 handle.close()

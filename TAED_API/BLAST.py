@@ -59,38 +59,54 @@ def blast_search():
 		hits -- Maximum # of results to return.
 		"""
 	user_query = None
+	search = None
 	if request.is_json:
-		# JSON currently requires jsonpickle style encoding.
-		# Will work to extend when I fix the class instantiation.
 		user_query = jsonpickle.decode(request.data)
 	elif request.method == 'POST':
-		# All fields required in POST (default if you don't want them)
-		user_query = BLASTSearch(sequence=request.form["sequence"],
-									job_name=request.form["job_name"],
-									file_data=request.form["file"],
-									e_value=request.form["e_value"],
-									max_hits=request.form["max_hits"])
+		# All fields required in POST (use empty string if you don't want them)
+		user_query = {}
+		for job_detail in ["job_name", "e_value", "max_hits", "dn_ds"]:
+			if request.form[job_detail] != "":
+				user_query[job_detail] = request.form[job_detail]
+
+		for sequence_datatype in ["seq_obj", "sequence", "file_data", "file_name"]:
+			if request.form[sequence_datatype] != "":
+				user_query[sequence_datatype] = request.form[sequence_datatype]
+				break # We only accept one sequence datatype.
+
 	elif request.method == "GET":
-		# GET.
-		user_query = BLASTSearch(sequence=request.args.get('sequence', ''),
-									job_name=request.args.get("job_name", 'BLAST Search'),
-									file_data=request.args.get("file", ''),
-									e_value=request.args.get("e_value", '1.0'),
-									max_hits=request.args.get("max_hits", '50'))
+		# GET Parameters are optional - only pass if you are using.
+		user_query = {}
+		for job_detail in ["job_name", "e_value", "max_hits", "dn_ds"]:
+			if job_detail in request.args:
+				user_query[job_detail] = request.args[job_detail]
+
+		for sequence_datatype in ["seq_obj", "sequence", "file_data", "file_name"]:
+			if sequence_datatype in request.args:
+				user_query[sequence_datatype] = request.args[sequence_datatype]
+				break # We only accept one sequence datatype.
+
 	else:
 		return request.data
 
-	if not user_query.error_state:
-		run_blast(user_query)
+	if isinstance(user_query, BLASTSearch):
+		search = user_query
+	elif isinstance(user_query, dict):
+		search = BLASTSearch(user_query)
+	else:
+		return jsonpickle.encode({"error" : "Invalid Call Format"})
 
-		uid = user_query.get_uid()
+	if not search.error_state:
+		run_blast(search)
+
+		uid = search.get_uid()
 
 		with (open(path.join(CONF["flat_file"], "blasts", uid + ".bs"), mode="w")) as obj_file:
-			json = jsonpickle.encode(user_query)
+			json = jsonpickle.encode(search)
 			LOG.error(json)
 			obj_file.write(json)
 
-	return jsonpickle.encode(user_query)
+	return jsonpickle.encode(search)
 
 @APP.route("/BLASTStatus", methods=['GET', 'POST'])
 def blast_status():
