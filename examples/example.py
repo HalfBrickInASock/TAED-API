@@ -32,7 +32,7 @@ if t_s.error_state:
 	print(result["error_message"])
 
 # Now for a valid search.
-t_s = TAEDSearch(gi="349004")
+t_s = TAEDSearch(search = { "gi_number": "349004"})
 result = t_s.run_web_query(remote_url)
 
 if not result["error_state"]:
@@ -67,7 +67,7 @@ if not result["error_state"]:
 			print("\n" + key + ":" + str(result[key]))
 
 # Try a KEGG search!
-t_s = TAEDSearch(min_taxa="10", max_taxa="15", kegg_pathway="ABC transporters")
+t_s = TAEDSearch(search={"min_taxa": 10, "max_taxa": 15, "kegg_pathway": "ABC transporters"})
 result = t_s.run_web_query(remote_url)
 
 if not result["error_state"]:
@@ -79,7 +79,8 @@ else:
 	print(result)
 
 # Now limit the KEGG search!
-t_s = TAEDSearch(min_taxa="10", max_taxa="15", kegg_pathway="ABC transporters", dn_ds=True)
+t_s = TAEDSearch(
+	search={"min_taxa": 10, "max_taxa": 15, "kegg_pathway": "ABC transporters", "dn_ds": "Y"})
 result = t_s.run_web_query(remote_url)
 
 if not result["error_state"]:

@@ -97,7 +97,7 @@ class BLASTSearch(object):
 			elif search["dn_ds"] in ["N", "n", "False"]:
 				self.__limits["dn_ds_filter"] = False
 		try:
-			self.__limits["dn_ds_filter"] = \
+			self.__limits["e_value"] = \
 				float(search["e_value"]) if "e_value" in search else CONF["defaults"]["e_value"]
 			self.__limits["max_hits"] = \
 				int(search["max_hits"]) if "max_hits" in search else CONF["defaults"]["max_hits"]
@@ -292,16 +292,21 @@ class TAEDSearch(object):
 	error_state = False
 	error_message = None
 
-	def __init__(self, search):
+	def __init__(self, search=None):
 		self.error_state = False
 		self.error_message = None
 
+		if search is None:
+			self.error_state = True
+			self.error_message = "No Search Data; Please Pass gi_number, kegg_pathway, species, or gene"
+			return
+
 		# Basic Assignments from Dictionary
-		self.__gi = 		search["gi_number"] if "gi_number" in search else ""	# pylint: disable=C0326
-		self.__species = 	search["species"] 	if "species" in search 	else ""		# pylint: disable=C0326
-		self.__gene = 		search["gene"] 		if "gene" in search 	else ""		# pylint: disable=C0326
-		self.__min_taxa = 	search["min_taxa"] 	if "min_taxa" in search else ""		# pylint: disable=C0326
-		self.__max_taxa = 	search["max_taxa"] 	if "max_taxa" in search else ""		# pylint: disable=C0326
+		self.__gi = search["gi_number"] if "gi_number" in search else ""
+		self.__species = search["species"] if "species" in search else ""
+		self.__gene = search["gene"] if "gene" in search else ""
+		self.__min_taxa = str(search["min_taxa"]) if "min_taxa" in search else ""
+		self.__max_taxa = str(search["max_taxa"]) if "max_taxa" in search else ""
 		self.__kegg_pathway = search["kegg_pathway"] if "kegg_pathway" in search else ""
 
 		# Selection filtering can be:

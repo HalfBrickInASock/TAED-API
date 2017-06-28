@@ -17,8 +17,8 @@ remote_url = "https://liberles.cst.temple.edu/TAED/json/BLAST"
 from TAED_API.TAEDSearch import BLASTSearch, BLASTStatus #pylint:disable=import-error,C0413
 
 # First we'll do a simple blast search, with a simple sequence.
-b_search = BLASTSearch(e_value=10, max_hits=50,
-						sequence="MRPGIDSTDNAGRKGAAINANEAMLTAALLSCALLLALPATQGAQMGLAP")
+b_search = BLASTSearch(search={"e_value": 10, "max_hits": 50,
+							"sequence": "MRPGIDSTDNAGRKGAAINANEAMLTAALLSCALLLALPATQGAQMGLAP"})
 print(b_search.__dict__)
 if not b_search.error_state:
 	# Ready to run blast.

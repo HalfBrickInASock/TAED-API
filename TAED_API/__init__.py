@@ -1,3 +1,4 @@
+# pylint: disable=C0413
 """@package TAED_API
 	Core module init file.  Configured for Flask.
 	"""
