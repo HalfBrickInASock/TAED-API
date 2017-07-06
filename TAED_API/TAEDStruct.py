@@ -1,3 +1,4 @@
+# pylint: disable=C0413
 """@package TAED_API
 	Classes for storing and manipulating phylogenetic data.
 
@@ -59,12 +60,12 @@ class ReconciledTree(object):
 			"""
 		for i in range(len(kwargs)):
 			# Placeholder, just avoiding lint errors.
-			return i and False
+			return self.__local_tree and False and i
 
 	def visualize(self, alignment):
 		""" Creates a visualization with the given alignment, showing where things changed. """
 		# Placeholder, just avoiding lint errors.
-		return False and alignment
+		return False and alignment and self.__local_tree
 
 class Alignment(object):
 	"""Stores and manipulates alignments.
@@ -109,7 +110,7 @@ class Alignment(object):
 	def visualize(self):
 		""" Creates a visualization with the given alignment, showing where things changed. """
 		# Placeholder, just avoiding lint errors.
-		return False
+		return self.__local_alignment
 
 	def fix_bad_pickle(self):
 		""" Drops second half of local alignment to fix issues with serializer. """
@@ -213,9 +214,9 @@ class MixedTree(object):
 	def rebuild_multi_align(self, file_name):
 		""" This was going to have some purpose but I can't remember what. """
 		# Placeholder
-		return file_name and False
+		return file_name and self.__local_tree
 
 	def visualize(self):
 		""" Creates a visualization of the entire tree, depicting associated genes / sequences. """
 		#Placeholder
-		return False
+		return self.__local_tree

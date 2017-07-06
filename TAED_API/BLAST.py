@@ -12,7 +12,6 @@
 from subprocess import Popen
 from os import path
 import sys
-import shelve
 import logging
 
 import jsonpickle
@@ -44,8 +43,8 @@ def run_blast(b_search):
 		try:
 			seq_run.append(Popen(["blastall"] + param_list[i], stdin=None, stdout=blast_record))
 		except: #pylint:disable=bare-except
-			b_search.run_status = BLASTStatus.ERROR
-			b_search.error_message = str(sys.exc_info())
+			b_search.status["run_status"] = BLASTStatus.ERROR
+			b_search.status["error_message"] = str(sys.exc_info())
 
 @APP.route("/BLAST", methods=['GET', 'POST'])
 def blast_search():
@@ -60,6 +59,7 @@ def blast_search():
 		"""
 	user_query = None
 	search = None
+
 	if request.is_json:
 		user_query = jsonpickle.decode(request.data)
 	elif request.method == 'POST':
@@ -73,7 +73,6 @@ def blast_search():
 			if request.form[sequence_datatype] != "":
 				user_query[sequence_datatype] = request.form[sequence_datatype]
 				break # We only accept one sequence datatype.
-
 	elif request.method == "GET":
 		# GET Parameters are optional - only pass if you are using.
 		user_query = {}
@@ -86,9 +85,6 @@ def blast_search():
 				user_query[sequence_datatype] = request.args[sequence_datatype]
 				break # We only accept one sequence datatype.
 
-	else:
-		return request.data
-
 	if isinstance(user_query, BLASTSearch):
 		search = user_query
 	elif isinstance(user_query, dict):
@@ -96,7 +92,7 @@ def blast_search():
 	else:
 		return jsonpickle.encode({"error" : "Invalid Call Format"})
 
-	if not search.error_state:
+	if not search.status["error_state"]:
 		run_blast(search)
 
 		uid = search.get_uid()
@@ -138,7 +134,7 @@ def blast_status():
 				status = temp.get_local_status()
 			with (open(path.join(CONF["flat_file"], "blasts", uid + ".bs"), mode="w")) as obj_file:
 				obj_file.write(jsonpickle.encode(temp))
-		except:
+		except (FileNotFoundError, FileExistsError):
 			LOG.error(sys.exc_info())
 			return jsonpickle.encode({"Error" : sys.exc_info()})
 

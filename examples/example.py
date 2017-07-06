@@ -23,19 +23,19 @@ print('Here is what happens when you search with no (or invalid) data:\n')
 
 # You'll get a dictionary with an error message.  This should print out
 #	"No Search Data; Please Pass gi_number, species, or gene"
-if result["error_state"]:
-	print(result["error_message"])
+if result.status["error_state"]:
+	print(result.status["error_message"])
 
 # You can see if your parameters are valid before calling by checking the search object.
-if t_s.error_state:
+if t_s.status["error_state"]:
 	# There's an error!
-	print(result["error_message"])
+	print(result.status["error_message"])
 
 # Now for a valid search.
-t_s = TAEDSearch(search = { "gi_number": "349004"})
+t_s = TAEDSearch(search={"gi_number": "349004"})
 result = t_s.run_web_query(remote_url)
 
-if not result["error_state"]:
+if not result.status["error_state"]:
 	# No error!
 	# We've got a bunch of results and files, so let's explore our object.
 	print('\nSo with real search, first level is the list of genes, as well as error info.\n')
@@ -70,7 +70,7 @@ if not result["error_state"]:
 t_s = TAEDSearch(search={"min_taxa": 10, "max_taxa": 15, "kegg_pathway": "ABC transporters"})
 result = t_s.run_web_query(remote_url)
 
-if not result["error_state"]:
+if not result.status["error_state"]:
 	# No error!
 	print("Kegg Search is going to get a lot more results.")
 	print(result.keys())
@@ -83,7 +83,7 @@ t_s = TAEDSearch(
 	search={"min_taxa": 10, "max_taxa": 15, "kegg_pathway": "ABC transporters", "dn_ds": "Y"})
 result = t_s.run_web_query(remote_url)
 
-if not result["error_state"]:
+if not result.status["error_state"]:
 	# No error!
 	print("Should have fewer results this time.")
 	print(result.keys())

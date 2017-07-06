@@ -1,2 +1,2 @@
 [MESSAGES CONTROL]
-disable=mixed-indentation,locally-disabled,bad-continuation
+disable=mixed-indentation,locally-disabled,redefined-variable-type,bad-continuation,cyclic-import

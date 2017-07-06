@@ -42,9 +42,10 @@ class BLASTSearch(object):
 	"""Object holding blast search data.
 
 		Interface Variables:
-		error_state -- Whether search data currently held is in error or not.
-		error_message -- Details on error related to current search data (if any).
-		run_status -- Status of the BLAST runs.
+		status -- Holds status information in a dictionary
+			error_state -- Whether search data currently held is in error or not.
+			error_message -- Details on error related to current search data (if any).
+			run_status -- Status of the BLAST runs.
 
 		Public Methods:
 		build_blastall_params -- Builds list of parameters for blastall search.
@@ -64,10 +65,7 @@ class BLASTSearch(object):
 		file_name -- Name of a file (useful locally).
 		"""
 
-	__data_folder = ""
-	__remote_location = ""
-
-	def __init__(self, search, uuid=None):
+	def __init__(self, search, paths=None, uuid=None):
 
 		# Regular Expression for amino acid sequence.
 		aa_seq = re.compile(r"^[ABCDEFGHIKLMNPQRSTUVWYZX\*\-\n\r]+$")
@@ -77,12 +75,14 @@ class BLASTSearch(object):
 		self.__job_name = search["job_name"] if "job_name" in search else "BLAST Search"
 
 		# Status Management
-		self.error_state = True
-		self.error_message = "Unitialized"
-		self.run_status = BLASTStatus.UNITIALIZED
+		self.status = {
+			"error_state": True,
+			"error_message": "Unitialized",
+			"run_status":  BLASTStatus.UNITIALIZED
+		}
 
 		# Location
-		self.__paths = {}
+		self.paths = paths
 
 		# Filtering.
 		# Positive Selection filtering can be:
@@ -102,7 +102,7 @@ class BLASTSearch(object):
 			self.__limits["max_hits"] = \
 				int(search["max_hits"]) if "max_hits" in search else CONF["defaults"]["max_hits"]
 		except ValueError:
-			self.error_message = "Invalid Numeric Parameters (e_value / max_hits):"
+			self.status["error_message"] = "Invalid Numeric Parameters (e_value / max_hits):"
 			return
 
 		# Handles Blast Sequence Object.
@@ -111,11 +111,12 @@ class BLASTSearch(object):
 				# Needs to be a list of Sequence Records
 				self.__sequences = jsonpickle.decode(search["seq_obj"])
 			except ValueError:
-				self.error_message = "Invalid Sequence Object: {0}".format(sys.exc_info())
+				self.status["error_message"] = "Invalid Sequence Object: {0}".format(sys.exc_info())
 				return
 		elif "sequence" in search:
 			if aa_seq.match(search["sequence"]) is None:
-				self.error_message = "Submitted sequence (" + search["sequence"] + ") is not a valid sequence."
+				self.status["error_message"] = \
+					"Submitted sequence (" + search["sequence"] + ") is not a valid sequence."
 				return
 
 			t_seq = Seq(str(search["sequence"]))
@@ -128,14 +129,16 @@ class BLASTSearch(object):
 			elif "file_name" in search:
 				handle = open(search["file_name"], "rU")
 			else:
-				self.error_message = "A sequence or FASTA file must be sent."
+				self.status["error_message"] = "A sequence or FASTA file must be sent."
 				return
 			for record in SeqIO.parse(handle, "fasta"):
 				self.__sequences.append(record)
 			handle.close()
 
-		self.error_state = False
-		self.run_status = BLASTStatus.READY
+		self.status = {
+			"error_state": False,
+			"run_status": BLASTStatus.READY
+		}
 		return
 
 	def get_uid(self):
@@ -150,7 +153,7 @@ class BLASTSearch(object):
 			data_folder -- Root folder for flat file manipulation (output, BLAST db, etc).
 			"""
 		parameter_list = []
-		self.__data_folder = data_folder
+		self.paths["local"] = data_folder
 
 		for i in range(len(self.__sequences)):
 
@@ -180,20 +183,20 @@ class BLASTSearch(object):
 			Return:
 				BLASTStatus enum holding status.
 			"""
-		if self.error_state:
+		if self.status["error_state"]:
 			return BLASTStatus.ERROR
 
 		files_made = 0
 		for i in range(0, len(self.__sequences)):
-			file_path = path.join(self.__data_folder, "blasted", str(self.__uid) + "_" + str(i))
+			file_path = path.join(self.paths["local"], "blasted", str(self.__uid) + "_" + str(i))
 			if path.exists(file_path):
 				if stat(file_path).st_size > 0:
 					files_made += 1
 
 		if files_made == len(self.__sequences) and files_made > 0:
-			self.run_status = BLASTStatus.COMPLETE
+			self.status["run_status"] = BLASTStatus.COMPLETE
 
-		return self.run_status
+		return self.status["run_status"]
 
 	def get_remote_status(self, remote_url=None):
 		"""Gets status of a BLAST run on the remote server associated with this search.
@@ -201,15 +204,15 @@ class BLASTSearch(object):
 			Return:
 				BLASTStatus enum holding status.
 			"""
-		if self.error_state:
+		if self.status["error_state"]:
 			return BLASTStatus.ERROR
 
 		if remote_url is None:
-			remote_url = self.__remote_location + "Status"
+			remote_url = self.paths["remote"] + "Status"
 
 		req = requests.get(remote_url, params={"uid" : self.__uid})
-		self.run_status = jsonpickle.decode(req.text)
-		return self.run_status
+		self.status["run_status"] = jsonpickle.decode(req.text)
+		return self.status["run_status"]
 
 	def get_remote_data(self, remote_url=None):
 		"""Gets the data of a completed BLAST run.
@@ -217,11 +220,11 @@ class BLASTSearch(object):
 			Return:
 				Dictionary with error status and (if successful) a list of NCBIXML Biopython objects.
 			"""
-		if self.error_state:
-			return {"error_state": True, "error_message": self.error_message}
+		if self.status["error_state"]:
+			return {"error_state": True, "error_message": self.status["error_message"]}
 
 		if remote_url is None:
-			remote_url = self.__remote_location + "Result"
+			remote_url = self.paths["remote"] + "Result"
 
 		req = requests.get(remote_url, params={"uid" : self.__uid})
 		return jsonpickle.decode(req.text)
@@ -243,12 +246,12 @@ class BLASTSearch(object):
 			"max_hits": self.__limits["max_hits"],
 			"sequence": str(self.__sequences[0].seq)
 		}
-		self.__remote_location = remote_url
+		self.paths["remote"] = remote_url
 		req = requests.get(remote_url, params=request_data)
 		remote = jsonpickle.decode(req.text)
-		if remote.error_state is not True:
+		if remote.status["error_state"] is not True:
 			self = remote
-			self.__remote_location = remote_url
+			self.paths["remote"] = remote_url
 
 		return self
 
@@ -258,79 +261,84 @@ class BLASTSearch(object):
 			Return:
 				Dictionary with error status and (if successful) a list of NCBIXML Biopython objects.
 			"""
-		if self.run_status != BLASTStatus.COMPLETE:
-			return {"error_status": True, "error_message": "BLAST Run Incomplete"}
+		if self.status["run_status"] != BLASTStatus.COMPLETE:
+			return {"error_state": True, "error_message": "BLAST Run Incomplete"}
 
 		blast_hits = []
 
 		for i in range(0, len(self.__sequences)):
-			file_path = path.join(self.__data_folder, "blasted", str(self.__uid) + "_" + str(i))
+			file_path = path.join(self.paths["local"], "blasted", str(self.__uid) + "_" + str(i))
 			with open(file_path) as handle:
 				for record in NCBIXML.parse(handle):
 					blast_hits.append(record)
-		return {"error_status": False, "blast_hits": blast_hits}
+		return {"error_state": False, "blast_hits": blast_hits}
 
 class TAEDSearch(object):
 	"""Object holding user search data.
 
 		Interface Variables:
-		error_state -- Whether search data currently held is in error or not.
-		error_message -- Details on error related to current search data (if any).
+		status -- Object Status
+			error_state -- Whether search data currently held is in error or not.
+			error_message -- Details on error related to current search data (if any).
 
 		Public Methods:
 		build_conditional -- Builds conditional WHERE clause for an SQL query for search.
 		run_web_query -- Runs json query to remote service and returns result.
 		"""
 
-	__gi = None
-	__species = None
-	__gene = None
-	__min_taxa = None
-	__max_taxa = None
-	__kegg_pathway = None
-	__p_selection = None
-	error_state = False
-	error_message = None
-
 	def __init__(self, search=None):
-		self.error_state = False
-		self.error_message = None
+		self.status = {"error_state": False}
 
 		if search is None:
-			self.error_state = True
-			self.error_message = "No Search Data; Please Pass gi_number, kegg_pathway, species, or gene"
+			self.status = {
+				"error_state": True,
+				"error_message": "No Search Data; Please Pass gi_number, kegg_pathway, species, or gene"
+			}
 			return
 
 		# Basic Assignments from Dictionary
 		self.__gi = search["gi_number"] if "gi_number" in search else ""
 		self.__species = search["species"] if "species" in search else ""
 		self.__gene = search["gene"] if "gene" in search else ""
-		self.__min_taxa = str(search["min_taxa"]) if "min_taxa" in search else ""
-		self.__max_taxa = str(search["max_taxa"]) if "max_taxa" in search else ""
 		self.__kegg_pathway = search["kegg_pathway"] if "kegg_pathway" in search else ""
+
+		# Parameters that restrict search space.
+		self.__limits = {}
+		if "min_taxa" in search:
+			if search["min_taxa"].isdigit():
+				self.__limits["min_taxa"] = search["min_taxa"]
+			else:
+				self.status = {
+					"error_state": True,
+					"error_message": "Invalid Taxa Data (Non Numeric)"
+				}
+		if "max_taxa" in search:
+			if search["max_taxa"].isdigit():
+				self.__limits["max_taxa"] = search["max_taxa"]
+			else:
+				self.status = {
+					"error_state": True,
+					"error_message": "Invalid Taxa Data (Non Numeric)"
+				}
 
 		# Selection filtering can be:
 		#	positive only (dn_ds = True, Y, y)
 		#	negative only (dn_ds = False, N, n)
 		#	no filtering (dn_ds = anything else)
-		self.__p_selection = None
 		if "dn_ds" in search:
 			if search["dn_ds"] in ["Y", "y", "True"]:
-				self.__p_selection = True
+				self.__limits["p_selection"] = True
 			if search["dn_ds"]  in ["N", "n", "False"]:
-				self.__p_selection = False
+				self.__limits["p_selection"] = False
 
-		if ((self.__gi != "") or
-			(self.__species != "") or
-			(self.__gene != "") or
-			(self.__kegg_pathway != "")):
-			if (((self.__min_taxa != "") and (not self.__min_taxa.isdigit())) or
-				((self.__max_taxa != "") and (not self.__max_taxa.isdigit()))):
-				self.error_state = True
-				self.error_message = "Invalid Taxa Data (Non Numeric)"
-		else:
-			self.error_state = True
-			self.error_message = "No Search Data; Please Pass gi_number, kegg_pathway, species, or gene"
+		if ((self.__gi == "") and
+			(self.__species == "") and
+			(self.__gene == "") and
+			(self.__kegg_pathway == "")):
+			self.status = {
+				"error_state": True,
+				"error_message": "No Search Data; Please Pass gi_number, kegg_pathway, species, or gene"
+			}
 
 	def build_conditional(self):
 		"""Builds conditional WHERE clause for an SQL query for search.
@@ -354,12 +362,19 @@ class TAEDSearch(object):
 				from_clause += " INNER JOIN keggMap ON keggMap.gi = gimap.gi"
 				cond += " AND (keggMap.pathName = %s)"
 				parameters.append(self.__kegg_pathway)
-			if (self.__min_taxa != "") or (self.__max_taxa != ""):
-				cond += " AND (directory BETWEEN %s AND %s)"
-				parameters.append(self.__min_taxa)
-				parameters.append(self.__max_taxa)
-			if self.__p_selection is not None:
-				if self.__p_selection:
+			if "min_taxa" in self.__limits:
+				if "max_taxa" in self.__limits:
+					cond += " AND (directory BETWEEN %s AND %s)"
+					parameters.append(self.__limits["min_taxa"])
+					parameters.append(self.__limits["max_taxa"])
+				else:
+					cond += " AND (directory > %s)"
+					parameters.append(self.__limits["min_taxa"])
+			elif "max_taxa" in self.__limits:
+					cond += " AND (directory < %s)"
+					parameters.append(self.__limits["max_taxa"])
+			if "p_selection" in self.__limits:
+				if self.__limits["p_selection"]:
 					cond += " AND (positiveRatio = 1)"
 				else:
 					cond += " AND (positiveRatio != 1)"
@@ -384,10 +399,12 @@ class TAEDSearch(object):
 				request_data['gene'] = self.__gene
 			if self.__kegg_pathway != "":
 				request_data['kegg_pathway'] = self.__kegg_pathway
-			if self.__min_taxa != "":
-				request_data['min_taxa'] = self.__min_taxa
-			if self.__max_taxa != "":
-				request_data['max_taxa'] = self.__max_taxa
+			if "min_taxa" in self.__limits:
+				request_data['min_taxa'] = self.__limits["min_taxa"]
+			if "max_taxa" in self.__limits:
+				request_data['max_taxa'] = self.__limits["max_taxa"]
+			if "p_selection" in self.__limits:
+				request_data['dn_ds'] = self.__limits["p_selection"]
 		# Alignments are doubled by jsonpickle for some reason.
 		#  	Will need to address; now we have a bunch of extra steps to cleave properly.
 		#TODO: Address JSON Pickle doubling in a better manner.

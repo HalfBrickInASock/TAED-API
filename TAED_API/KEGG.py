@@ -31,10 +31,12 @@ def db_load_old():
 		#	below in old format.
 		c.execute("SELECT DISTINCT pathName FROM keggMap ORDER BY pathName")
 		kegg_dict["path_names"] = list(c)
-		kegg_dict["error_state"] = False
-	except:
-		kegg_dict["error_state"] = True
-		kegg_dict["error_message"] = "There was an error getting your results from the db."
+		kegg_dict["status"] = {"error_state": False}
+	except MySQLdb.Error: # pylint: disable=no-member
+		kegg_dict["status"] = {
+			"error_state": True,
+			"error_message": "There was an error getting your results from the db."
+		}
 		log.error("DB Connection Problem: %s", sys.exc_info()[0])
 
 	if db is not None:

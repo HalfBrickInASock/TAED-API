@@ -50,11 +50,15 @@ def db_load_old(search_obj):
 					" INNER JOIN taedfile ON gimap.taedFileNumber = taedfile.taedFileNumber" +
 					from_clause + where_clause, parameters)
 		if c.rowcount == 0:
-			gene_dict["error_state"] = False
-			gene_dict["error_message"] = "There were no results for your query."
-	except MySQLdb.Error:
-		gene_dict["error_state"] = True
-		gene_dict["error_message"] = "There was an error getting your results from the db."
+			gene_dict["status"] = {
+				"error_state": True,
+				"error_message": "There were no results for your query."
+			}
+	except MySQLdb.Error:  # pylint: disable=no-member
+		gene_dict["status"] = {
+			"error_state": True,
+			"error_message": "There was an error getting your results from the db."
+		}
 		log.error("DB Connection Problem: %s", sys.exc_info())
 	try:
 		for gene in c:
@@ -77,11 +81,13 @@ def db_load_old(search_obj):
 						) if gene["reconciledTree"] else None
 			}
 			gene_dict["familyNameLen"] = str(len(gene_dict[gene["familyName"]]["Alignment"].temp_return_alignment()))	# pylint: disable=C0301
-			gene_dict["error_state"] = False
+			gene_dict["status"]["error_state"] = False
 	except FileNotFoundError:
-		gene_dict["error_state"] = True
-		gene_dict["error_message"] = ("We were unable to locate any files."
-										" Please check data files are installed or notify the sysadmin.")
+		gene_dict["status"] = {
+			"error_state": True,
+			"error_message": ("We were unable to locate any files."
+									" Please check data files are installed or notify the sysadmin.")
+		}
 		log.error("Data Problem: %s [%s %s %s]", sys.exc_info(),
 			path.join(flat_path, gene["interleafed"]),
 			path.join(flat_path, gene["nhxRooted"]),
@@ -155,7 +161,7 @@ def taed_search():
 		return jsonpickle.encode({"error" : "Invalid Call Format"})
 
 	try:
-		if search.error_state:
+		if search.status["error_state"]:
 			return json.dumps(search.__dict__)
 	except TypeError:
 		return jsonpickle.encode({"error" : "JSON Format Invalid"})

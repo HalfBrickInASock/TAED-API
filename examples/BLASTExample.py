@@ -20,7 +20,7 @@ from TAED_API.TAEDSearch import BLASTSearch, BLASTStatus #pylint:disable=import-
 b_search = BLASTSearch(search={"e_value": 10, "max_hits": 50,
 							"sequence": "MRPGIDSTDNAGRKGAAINANEAMLTAALLSCALLLALPATQGAQMGLAP"})
 print(b_search.__dict__)
-if not b_search.error_state:
+if not b_search.status["error_state"]:
 	# Ready to run blast.
 	print("\nOnce we've created the search object correctly, we can run the search remotely.")
 	result = b_search.run_web_query(remote_url)
@@ -35,7 +35,7 @@ if not b_search.error_state:
 		# Error!
 		print("\nSomething went wrong.")
 		print(result.get_remote_status(remote_url + "Status"))
-		print(result.error_message)
+		print(result.status["error_message"])
 	else:
 		print("\nWe're complete and have the XML for the BLAST result.")
 		XML_DETAILS = result.get_remote_data(remote_url + "Result")
@@ -47,4 +47,4 @@ if not b_search.error_state:
 				print(blastval.__dict__)
 else:
 	print("\nSome reported error.")
-	print(b_search.error_state)
+	print(b_search.status["error_state"])
