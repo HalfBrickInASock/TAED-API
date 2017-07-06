@@ -12,30 +12,32 @@ sys.path.insert(0, path.abspath(".."))
 from TAED_API.TAEDSearch import TAEDSearch #pylint:disable=import-error,C0413
 
 # URL of the API.
-remote_url = "https://liberles.cst.temple.edu/TAED/json/search"
+remote_url = "http://127.0.0.1:5000/search"
+# Remote URL is currently earlier version https://liberles.cst.temple.edu/TAED/json/search
 
-# We can search for nothing, but it will get an error.
-#  (Note: URL here is Flask local because API isn't available anywhere yet)
+# Since we're in a default error state we shouldn't search.
 t_s = TAEDSearch()
-result = t_s.run_web_query(remote_url)
-
-print('Here is what happens when you search with no (or invalid) data:\n')
-
-# You'll get a dictionary with an error message.  This should print out
-#	"No Search Data; Please Pass gi_number, species, or gene"
-if result.status["error_state"]:
-	print(result.status["error_message"])
 
 # You can see if your parameters are valid before calling by checking the search object.
 if t_s.status["error_state"]:
 	# There's an error!
-	print(result.status["error_message"])
+	print('Here is the no-data error message:\n')
+	print(t_s.status["error_message"])
+
+# You can try searching after passing an empty data dictionary but it will also fail.
+t_s = TAEDSearch({})
+result = t_s.run_web_query(remote_url)
+
+# You'll get a dictionary with an error message.  This should print out
+#	"No Search Data; Please Pass gi_number, species, or gene"
+if result["status"]["error_state"]:
+	print(result["status"]["error_message"])
 
 # Now for a valid search.
 t_s = TAEDSearch(search={"gi_number": "349004"})
 result = t_s.run_web_query(remote_url)
 
-if not result.status["error_state"]:
+if not result['status']["error_state"]:
 	# No error!
 	# We've got a bunch of results and files, so let's explore our object.
 	print('\nSo with real search, first level is the list of genes, as well as error info.\n')
@@ -67,10 +69,10 @@ if not result.status["error_state"]:
 			print("\n" + key + ":" + str(result[key]))
 
 # Try a KEGG search!
-t_s = TAEDSearch(search={"min_taxa": 10, "max_taxa": 15, "kegg_pathway": "ABC transporters"})
+t_s = TAEDSearch(search={"min_taxa": "10", "max_taxa": "15", "kegg_pathway": "ABC transporters"})
 result = t_s.run_web_query(remote_url)
 
-if not result.status["error_state"]:
+if not result["status"]["error_state"]:
 	# No error!
 	print("Kegg Search is going to get a lot more results.")
 	print(result.keys())
@@ -80,10 +82,10 @@ else:
 
 # Now limit the KEGG search!
 t_s = TAEDSearch(
-	search={"min_taxa": 10, "max_taxa": 15, "kegg_pathway": "ABC transporters", "dn_ds": "Y"})
+	search={"min_taxa": "10", "max_taxa": "15", "kegg_pathway": "ABC transporters", "dn_ds": "Y"})
 result = t_s.run_web_query(remote_url)
 
-if not result.status["error_state"]:
+if not result["status"]["error_state"]:
 	# No error!
 	print("Should have fewer results this time.")
 	print(result.keys())

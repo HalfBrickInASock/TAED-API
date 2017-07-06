@@ -33,9 +33,18 @@ def run_blast(b_search):
 		b_search -- Search data Object.
 		"""
 
-	seq_data, param_list = b_search.build_blastall_params(data_folder=CONF["flat_file"])
-	blast_record = open(path.join(CONF["flat_file"], "blasted", "blastout.out"), 'a+')
-	seq_run = []
+	try:
+		seq_data, param_list = b_search.build_blastall_params(data_folder=CONF["flat_file"])
+		blast_record = open(path.join(CONF["flat_file"], "blasted", "blastout.out"), 'a+')
+		seq_run = []
+	except FileNotFoundError:
+		b_search.status = {
+			"error_state": True,
+			"error_message": ("Remote server is having filesystem issues."
+								" Please notify the system administrator."),
+			"run_status": BLASTStatus.ERROR
+		}
+		return b_search
 
 	b_search.run_status = BLASTStatus.IN_PROGRESS
 
@@ -45,6 +54,7 @@ def run_blast(b_search):
 		except: #pylint:disable=bare-except
 			b_search.status["run_status"] = BLASTStatus.ERROR
 			b_search.status["error_message"] = str(sys.exc_info())
+	return b_search
 
 @APP.route("/BLAST", methods=['GET', 'POST'])
 def blast_search():
@@ -93,14 +103,14 @@ def blast_search():
 		return jsonpickle.encode({"error" : "Invalid Call Format"})
 
 	if not search.status["error_state"]:
-		run_blast(search)
+		search = run_blast(search)
 
-		uid = search.get_uid()
-
-		with (open(path.join(CONF["flat_file"], "blasts", uid + ".bs"), mode="w")) as obj_file:
-			json = jsonpickle.encode(search)
-			LOG.error(json)
-			obj_file.write(json)
+		if not search.status["error_state"]:
+			uid = search.get_uid()
+			with (open(path.join(CONF["flat_file"], "blasts", uid + ".bs"), mode="w")) as obj_file:
+				json = jsonpickle.encode(search)
+				LOG.error(json)
+				obj_file.write(json)
 
 	return jsonpickle.encode(search)
 

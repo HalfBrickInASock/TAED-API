@@ -82,7 +82,7 @@ class BLASTSearch(object):
 		}
 
 		# Location
-		self.paths = paths
+		self.paths = paths if paths is not None else {}
 
 		# Filtering.
 		# Positive Selection filtering can be:
@@ -248,10 +248,8 @@ class BLASTSearch(object):
 		}
 		self.paths["remote"] = remote_url
 		req = requests.get(remote_url, params=request_data)
-		remote = jsonpickle.decode(req.text)
-		if remote.status["error_state"] is not True:
-			self = remote
-			self.paths["remote"] = remote_url
+		self = jsonpickle.decode(req.text)
+		self.paths["remote"] = remote_url
 
 		return self
 
@@ -413,6 +411,5 @@ class TAEDSearch(object):
 		for gene in r_temp:
 			if isinstance(r_temp[gene], dict):
 				r_temp[gene]["Alignment"].fix_bad_pickle()
-
 
 		return r_temp
