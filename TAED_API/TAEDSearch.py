@@ -303,7 +303,7 @@ class TAEDSearch(object):
 		# Parameters that restrict search space.
 		self.__limits = {}
 		if "min_taxa" in search:
-			if search["min_taxa"].isdigit():
+			if (search["min_taxa"].isdigit()) or (search["min_taxa"] == ""):
 				self.__limits["min_taxa"] = search["min_taxa"]
 			else:
 				self.status = {
@@ -311,7 +311,7 @@ class TAEDSearch(object):
 					"error_message": "Invalid Taxa Data (Non Numeric)"
 				}
 		if "max_taxa" in search:
-			if search["max_taxa"].isdigit():
+			if (search["max_taxa"].isdigit()) or (search["max_taxa"] == ""):
 				self.__limits["max_taxa"] = search["max_taxa"]
 			else:
 				self.status = {
@@ -407,9 +407,11 @@ class TAEDSearch(object):
 		#  	Will need to address; now we have a bunch of extra steps to cleave properly.
 		#TODO: Address JSON Pickle doubling in a better manner.
 		req = requests.get(remote_url, params=request_data)
+
 		r_temp = jsonpickle.decode(req.text)
 		for gene in r_temp:
 			if isinstance(r_temp[gene], dict):
-				r_temp[gene]["Alignment"].fix_bad_pickle()
+				if "Alignment" in r_temp[gene]:
+					r_temp[gene]["Alignment"].fix_bad_pickle()
 
 		return r_temp

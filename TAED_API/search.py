@@ -32,7 +32,11 @@ def db_load_old(search_obj):
 		Keyword Arguments:
 		search_obj -- Object holding search data for the call.
 		"""
-	gene_dict = {}
+	gene_dict = {
+		"status": {
+			"error_state": False
+		}
+	}
 	# pylint: disable=C0103
 	log = logging.getLogger("dbserver")
 	db = None

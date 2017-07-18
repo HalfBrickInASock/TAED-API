@@ -78,7 +78,7 @@ if not result["status"]["error_state"]:
 	print(result.keys())
 else:
 	print("Oops.")
-	print(result)
+	print(result["status"])
 
 # Now limit the KEGG search!
 t_s = TAEDSearch(

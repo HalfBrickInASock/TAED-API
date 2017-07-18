@@ -32,7 +32,7 @@ if not b_search.status["error_state"]:
 
 	# Early error.
 	if result.status["error_state"]:
-		print("\nSomething went wrong.")
+		print("\nSomething went wrong in the initial query.")
 		print(result.status["error_message"])
 
 	# We've got a started BLAST run.  Sleep while it is still running.
