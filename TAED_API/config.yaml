@@ -6,5 +6,9 @@ db:
   pass: "H6ih2PcqGwy4WjpmRwHZ"
   old_db: "TAED"
   new_db: "TAED_LIGHT"
-flat_file: "/media/sorotassu/Bulk/TAED2/"
-upload_folder: "/media/sorotassu/Bulk/TAED2/uploads/"
+flat_file: "../Bulk/TAED2/"
+upload_folder: "../Bulk/TAED2/uploads/"
+defaults:
+  max_hits: 50
+  max_blasts: 5
+  e_value: 1.0
