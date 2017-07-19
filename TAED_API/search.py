@@ -19,9 +19,10 @@ import jsonpickle
 from ruamel import yaml
 from flask import request
 
+from Bio import Phylo
+
 from TAED_API.TAEDStruct import Alignment, GeneTree, ReconciledTree
 from TAED_API.TAEDSearch import TAEDSearch
-
 from TAED_API import APP
 
 CONF = yaml.safe_load(open(path.join("config.yaml"), 'r+')) #"TAED_API",
@@ -48,6 +49,7 @@ def db_load_old(search_obj):
 		# Conditional clause is built by search data; everything is covered in the two tables
 		#	below in old format.
 		from_clause, where_clause, parameters = search_obj.build_conditional()
+
 		c.execute("SELECT DISTINCT baseDirectory, Directory, familyName" +
 					", interleafed, nhxRooted, reconciledTree" +
 					" FROM gimap" +
@@ -70,22 +72,31 @@ def db_load_old(search_obj):
 			flat_path = path.join(CONF["flat_file"], gene["baseDirectory"], gene["Directory"])
 
 			# Auto-load the files into our extensions of BioPython objects.
-			gene_dict[gene["familyName"]] = {
-				"Alignment":
-					Alignment(
-						path.join(flat_path, gene["interleafed"])
-						) if gene["interleafed"] else None,
-				"Gene Tree":
-					GeneTree(
-						path.join(flat_path, gene["nhxRooted"])
-						) if gene["nhxRooted"] else None,
-				"Reconciled Tree" :
-					ReconciledTree(
-						path.join(flat_path, gene["reconciledTree"])
-						) if gene["reconciledTree"] else None
-			}
-			gene_dict["familyNameLen"] = str(len(gene_dict[gene["familyName"]]["Alignment"].temp_return_alignment()))	# pylint: disable=C0301
-			gene_dict["status"]["error_state"] = False
+			try:
+				gene_dict[gene["familyName"]] = {
+					"Alignment":
+						Alignment(
+							path.join(flat_path, gene["interleafed"])
+							) if gene["interleafed"] else None,
+					"Gene Tree":
+						GeneTree(
+							path.join(flat_path, gene["nhxRooted"])
+							) if gene["nhxRooted"] else None,
+					"Reconciled Tree" :
+						ReconciledTree(
+							path.join(flat_path, gene["reconciledTree"])
+							) if gene["reconciledTree"] else None
+				}
+				if gene_dict[gene["familyName"]]["Alignment"] is not None:
+					gene_dict["familyNameLen"] = \
+						str(len(gene_dict[gene["familyName"]]["Alignment"].temp_return_alignment()))	# pylint: disable=C0301
+				gene_dict["status"]["error_state"] = False
+			except Phylo.NewickIO.NewickError:
+				log.error("Data Problem: %s [%s %s %s]", sys.exc_info(),
+				path.join(flat_path, gene["interleafed"]),
+				path.join(flat_path, gene["nhxRooted"]),
+				path.join(flat_path, gene["reconciledTree"]))
+				gene_dict.pop(gene["familyName"], None)
 	except FileNotFoundError:
 		gene_dict["status"] = {
 			"error_state": True,
@@ -109,6 +120,15 @@ def db_load_new(search_obj, gene_dict):
 		"""
 	# Stub for now
 	return [search_obj, gene_dict]
+
+@APP.route("/rawdata", methods=['POST'])
+def raw_data():
+	return request.get_data()
+
+@APP.route("/rawheaders", methods=['POST'])
+def raw_headers():
+	return jsonpickle.encode(request.headers)
+
 
 @APP.route("/search", methods=['GET', 'POST'])
 def taed_search():

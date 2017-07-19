@@ -16,6 +16,7 @@ from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 import requests
 import jsonpickle
+import logging
 
 from ruamel import yaml
 if path.exists("config.yaml"):
@@ -303,17 +304,17 @@ class TAEDSearch(object):
 		# Parameters that restrict search space.
 		self.__limits = {}
 		if "min_taxa" in search:
-			if (search["min_taxa"].isdigit()) or (search["min_taxa"] == ""):
+			if search["min_taxa"].isdigit():
 				self.__limits["min_taxa"] = search["min_taxa"]
-			else:
+			elif search["min_taxa"] != "":
 				self.status = {
 					"error_state": True,
 					"error_message": "Invalid Taxa Data (Non Numeric)"
 				}
 		if "max_taxa" in search:
-			if (search["max_taxa"].isdigit()) or (search["max_taxa"] == ""):
+			if search["max_taxa"].isdigit():
 				self.__limits["max_taxa"] = search["max_taxa"]
-			else:
+			elif search["max_taxa"] != "":
 				self.status = {
 					"error_state": True,
 					"error_message": "Invalid Taxa Data (Non Numeric)"

@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>TAED API - JSON Gene Search Example</title>
+	<meta charset="UTF-8">
+	<link rel="stylesheet" type="text/css" href="call.css">
+	<script>
+		function self_post() {
+			var returnFrame = document.getElementById("json_result");
+
+			var searchObj = {
+				"gene": "agouti",
+				"max_taxa": "5"
+			}
+			
+			var xhr = new XMLHttpRequest();
+			xhr.open("POST", "https://liberles.cst.temple.edu/TAED/json/search", true);
+			xhr.setRequestHeader("Content-type", "application/json");
+			xhr.onreadystatechange = function () {
+				if (xhr.readyState === XMLHttpRequest.DONE && xhr.status === 200) {
+					returnFrame.innerHTML = xhr.responseText
+				}
+			};
+			xhr.send(JSON.stringify(searchObj));
+		}
+	</script>
+</head>
+<body>
+	<h2>TAED API - JSON Gene Search Example</h2>
+	<div id="POST">
+		<h3>JSON Sample</h3>
+
+		<input type="button" name="sub" value="Send JSON" onclick="javascript:self_post();">
+		<code>
+POST https://liberles.cst.temple.edu/TAED/json/search HTTP/1.1
+CONTENT_TYPE: application/json
+
+{
+	"gene": "agouti",
+	"max_taxa": "5"
+}
+		</code>
+	</div>
+	<div id="RESULT">
+		<h3>JSON Result</h3>
+		<div id="json_result">
+		</div>
+	</div>
+</body>
+</html>

@@ -12,8 +12,7 @@ sys.path.insert(0, path.abspath(".."))
 from TAED_API.TAEDSearch import TAEDSearch #pylint:disable=import-error,C0413
 
 # URL of the API.
-remote_url = "http://127.0.0.1:5000/search"
-# Remote URL is currently earlier version https://liberles.cst.temple.edu/TAED/json/search
+remote_url = "https://liberles.cst.temple.edu/TAED/json/search"
 
 # Since we're in a default error state we shouldn't search.
 t_s = TAEDSearch()
