@@ -88,6 +88,14 @@ if not result["status"]["error_state"]:
 	# No error!
 	print("Should have fewer results this time.")
 	print(result.keys())
+
+	for key in result.keys():
+		if key != "status" and key != "familyNameLen":
+			result[key]["Alignment"].save_to_file(key[:5] + "_Alignment.phylip")
+			result[key]["Gene Tree"].save_to_file(key[:5] + "_Gene Tree.newick")
+			result[key]["Reconciled Tree"].save_to_file(key[:5] + "_Reconciled Tree.newick")
+
+
 else:
 	print("Oops.")
 	print(result)

@@ -7,3 +7,7 @@ dist
 doxygen_sqlite3.db
 documentation/html
 documentation/latex
+venv
+.directory
+examples/*.newick
+TAED.7z
