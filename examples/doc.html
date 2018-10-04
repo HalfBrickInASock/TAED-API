@@ -1,0 +1,300 @@
+	<h1><a name="nonav" id="nonav"></a>TAED API HELP</h1>
+
+	<style>
+		.json_pass { display: none; }
+		div#Content table { width: 525px; border: 1px solid black; }
+		div#Content table td { margin: 0px; padding: 3px; }
+		div#Content table td p { text-indent: 5px; padding-right: 0px; }
+		code {
+			white-space: pre-wrap;
+		}
+	</style>
+
+	<p>TAED API is a JSON-based API for The Adaptive Evolutionary Database.</p>
+
+	<div id="shortcut_box">
+		<ol>
+		<li><a href="#search_api">Search API</a>
+			<ol>
+			<li><a href="#search_parameters">Parameters</a></li>
+			<li><a href="#search_call">Search Call Format &amp; Examples</a>
+				<ol>
+				<li><a href="#search_get">GET Call</a></li>
+				<li><a href="#search_post">POST Call</a></li>
+				<li><a href="#search_json">JSON Call</a></li>
+				<li><a href="#search_gi">GI Number Search Example</a></li>
+				<li><a href="#search_species">Species Search Example</a></li>
+				<li><a href="#search_gene">Gene Search Example</a></li>
+				<li><a href="#search_kegg">KEGG Pathway Search Example</a></li>
+				</ol>
+			</li>
+			<li><a href="#search_return">Return Data</a></li>
+			<li><a href="#search_python">Python Library</a></li>
+		</li>
+		<li><a href="#kegg_api">KEGG List Call</a></li>
+		<li><a href="#download">Downloadable Documentation</a></li>
+		</ol>
+	</div>
+
+	<div style="margin: 20px;">
+		<h2 id="search_api">Search API</h2>
+
+		<p></p>
+
+		<h3 id="search_parameters">Parameters</h3>
+			<h4>Identification Parameters</h4>
+				<p>At least one must be passed.</p>
+
+				<table>
+				<tr><th><p>Description</p></th>
+					<th><p>Parameter</p></th>
+					<th><p>Values</p></th>
+					<th><p>Filterable?</p></th>
+				</tr>
+				<tr><td><p>Genbank <strong>GenInfo Number</strong></p></td>
+					<td><p>gi_number</p></td>
+					<td><p>Numeric</p></td>
+					<td><p>No; returns specific result.</p></td>
+				</tr>
+				<tr><td><p>Species Name</p></td>
+					<td><p>species</p></td>
+					<td><p>String</p></td>
+					<td><p>Yes</p></td>
+				</tr>
+				<tr><td><p>Gene Name</p></td>
+					<td><p>gene</p></td>
+					<td><p>String</p></td>
+					<td><p>Yes</p></td></tr>
+				<tr><td><p>KEGG Pathway</p></td>
+					<td><p>kegg_pathway</p></td>
+					<td><p>String</p></td>
+					<td><p>Yes</p></td></tr></table>
+
+			<h4>Filtering parameters</h4>
+				<p>All Optional</p>
+
+				<table>
+				<tr><th><p>Description</p></th>
+					<th><p>Parameter</p></th>
+					<th><p>Type</p></th>
+					<th><p>Details</p></th></tr>
+				<tr><td><p>Minimum Taxa</p></td>
+					<td><p>min_taxa</p></td>
+					<td><p>Numeric</p></td>
+					<td><p>Minimum # of taxa required to include a gene family.</p></td></tr>
+				<tr><td><p>Maximum Taxa</p></td>
+					<td><p>max_taxa</p></td>
+					<td><p>Numeric</p></td>
+					<td><p>Maximum # of taxa allowed in a included gene family.</p></td></tr>
+				<tr><td><p>Positive Selection Filter</p></td>
+					<td><p>dn_ds</p></td>
+					<td><p>Boolean (True/False)</p></td>
+					<td><p>Whether to retrieve only include gene families with indication 
+							of positive selection (dN/dS &gt; 1)</p></td></tr>
+				</table>
+
+		<h3 id="search_call">Search API Call Format</h3>
+			<h4 id="search_get">GET Format</h4>
+				<code>
+https://liberles.cst.temple.edu/TAED/json/search?[argument1]=[value1]&[argument2]=[value2]&....
+				</code>
+
+			<h4 id="search_post">POST Format</h4>
+				<code>
+https://liberles.cst.temple.edu/TAED/json/search
+
+dn_ds=[value]&gene=[value]&species=[value]&kegg_pathway=[value]&gi_number=[value]&maxtaxa=[value]&min_taxa=
+				</code>
+
+			<h4 id="search_json">JSON Format</h4>
+				<code>
+https://liberles.cst.temple.edu/TAED/json/search
+
+{
+	"py/object": "TAED_API.TAEDSearch.TAEDSearch", 
+	"_TAEDSearch__gene": [value],
+	"_TAEDSearch__gi": [value],
+	"_TAEDSearch__kegg_pathway": [value],
+	"_TAEDSearch__max_taxa": [value],
+	"_TAEDSearch__min_taxa": [value],
+	"_TAEDSearch__p_selection_only": [value],
+	"_TAEDSearch__species": [value],
+	"error_message": [value], 
+	"error_state": [value],
+}
+				</code>
+
+				<p>Details:<br>
+				<a onclick="javascript: document.getElementById('search_pass').style = 'display: block'">Show</a> / 
+				<a onclick="javascript: document.getElementById('search_pass').style = 'display: none'">Hide</a></p>
+				<div class="json_pass" id="search_pass">
+					<table>
+					<tr><td><p>Description</p></td>
+						<td><p>Parameter</p></td>
+						<td><p>Type</p></td>
+						<td><p>Optional?</p></td>
+						<td><p>Description</p></td></tr>
+					<tr><td><p>Object ID</p></td>
+						<td><p><span>py/object</span></p></td>
+						<td><p>String</p></td>
+						<td><p>N</p></td>
+						<td><p><span>TAED_API.TAEDSearch.TAEDSearch</span></p></td></tr>
+					<tr><td><p>Genbank GenInfo Number</p></td>
+						<td><p>gi</p></td>
+						<td><p>Numeric</p></td>
+						<td rowspan="4"><p>One of these 4 Parameters</p></td>
+						<td>&nbsp;</td></tr>
+					<tr><td><p>Species Name</p></td>
+						<td><p>species</p></td>
+						<td><p>String</p></td>
+						<td>&nbsp;</td></tr>
+					<tr><td><p>Gene Name</p></td>
+						<td><p>gene</p></td>
+						<td><p>String</p></td>
+						<td>&nbsp;</td></tr>
+					<tr><td><p>KEGG Pathway</p></td>
+						<td><p>kegg_pathway</p></td>
+						<td><p>String</p></td>
+						<td>&nbsp;</td></tr>
+					<tr><td><p>Minimum Taxa</p></td>
+						<td><p>min_taxa</p></td>
+						<td><p>Numeric</p></td>
+						<td><p>Y</p></td>
+						<td>&nbsp;</td></tr>
+					<tr><td><p>Maximum Taxa</p></td>
+						<td><p>max_taxa</p></td>
+						<td><p>Numeric</p></td>
+						<td><p>Y</p></td>
+						<td>&nbsp;</td></tr>
+					<tr><td><p>Positive Selection Filter</p></td>
+						<td><p><span>p_selection_only</span></p></td>
+						<td><p>Boolean (True/False)</p></td>
+						<td><p>N (must pass default value)</p></td>
+						<td>&nbsp;</td></tr>
+					</table>
+				</div>
+			<h4>Examples:</h4>
+				<h5 id="search_gi">Fetch Alignment and Tree Deta for GI #349004</h5>
+				<ul>
+				<li><a href="https://liberles.cst.temple.edu/TAED/json/search?gi_number=349004">GET Call</a>
+				<li><a href="call/post_gi.html">POST Call</a>
+				<li><a href="call/json_gi.html">JSON Call</a>
+				<li>Python Code Example
+					<code>
+t_s = TAEDSearch(search={"gi_number": "349004"})
+result = t_s.run_web_query(remote_url)
+					</code>
+				</ul>
+
+				<h5 id="search_species">Fetch Alignment and Tree Data for all genes recorded for <i>sapiens</i></h5>
+				<ul>
+				<li><a href="https://liberles.cst.temple.edu/TAED/json/search?species=sapiens">GET Call</a>
+				<li><a href="call/post_species.html">POST Call</a>
+				<li><a href="call/json_species.html">JSON Call</a>
+				<li>Python Code Example
+					<code>
+t_s = TAEDSearch(search={"species": "sapiens"})
+result = t_s.run_web_query(remote_url)
+					</code>
+				</ul>
+
+				<h5 id="search_gene">Fetch Alignment and Tree Data for agouti genes with 10-15 taxa.</h5>
+				<ul>
+				<li><a href="https://liberles.cst.temple.edu/TAED/json/search?mintaxa=10&maxtaxa=15&gene=agouti">GET Call</a>
+				<li><a href="call/post_gene.html">POST Call</a>
+				<li><a href="call/json_gene.html">JSON Call</a>
+				<li>Python Code Example
+					<code>
+t_s = TAEDSearch(search={"min_taxa": "10", "max_taxa": "15", "gene": "agouti"})
+result = t_s.run_web_query(remote_url)
+					</code>
+				</ul>
+
+				<h5 id="search_pathway">Fetch Alignment and Tree Data for all genes in the ABC Transporters 
+						pathway under positive selection and with between 15 and 20 taxa</h5>
+				<ul>
+				<li><a href="https://liberles.cst.temple.edu/TAED/json/search?kegg_pathway=ABC%20transporters&dn_ds=Y&min_taxa=15&max_taxa=20">GET Call</a>
+				<li><a href="call/post_kegg.html">POST Call</a>
+				<li><a href="call/json_kegg.html">JSON Call</a>
+				<li>Python Code Example
+					<code>
+t_s = TAEDSearch(search={"min_taxa": "15", "max_taxa": "20", "kegg_pathway": "ABC transporters", "dn_ds": "Y"})
+result = t_s.run_web_query(remote_url)
+					</code>
+				</ul>
+		
+		<h3 id="search_return">Return Data</h3>	
+			<p>A JSON Dictionary is returned.</p>
+
+			<table>
+			<tr><td><p>Description</p></td>
+				<td><p>Field</p></td>
+				<td><p>Type</p></td>
+				<td><p>Count</p></td>
+				<td><p>Value</p></td></tr>
+			<tr><td><p>Error Flag</p></td>
+				<td><p>error_state</p></td>
+				<td><p>Boolean</p></td>
+				<td><p>1</p></td>
+				<td><p>True / False</p></td></tr>
+			<tr><td><p>Error Message</p></td>
+				<td><p>error_message</p></td>
+				<td><p>String</p></td>
+				<td><p>0 or 1</p></td>
+				<td>&nbsp;</td></tr>
+			<tr><td><p>Search Result</p></td>
+				<td><p>(String holding name of gene family)</p></td>
+				<td><p>Dictionary</p></td>
+				<td><p>0+</p></td>
+				<td><p>Set of search results (see next table) by gene name.</p></td></tr>
+			</table>
+
+			<h5>Search Result Entry</h5>
+			<table>
+			<tr><td><p>Field Name</p></td>
+				<td><p>Result Type</p></td>
+				<td><p>Details</p></td></tr>
+			<tr><td><p>Alignment</p></td>
+				<td><p><span class="Source_20_Text">TAEDStruct.Alignment</span></p></td>
+				<td><p>Contains BioPython <span>MultipleSeqAlignment object, supplementary data.</span></p>
+					<p><span>Holds alignments found for gene.</span></p></td></tr>
+			<tr><td><p>GeneTree</p></td>
+				<td><p>TAEDStruct.GeneTree</p></td>
+				<td><p>Contains BioPython Tree Object (Newick)</p>
+					<p>Holds gene tree.</p></td></tr>
+			<tr><td><p>ReconciledTree</p></td>
+				<td><p>TAEDStruct.ReconciledTree </p></td>
+				<td><p>Contains BioPython Tree Object (Newick)</p>
+					<p>Holds relevant reconciled gene/species tree.</p></td></tr>
+			</table>
+
+		<h3 id="search_python">Python Library</h3>
+			<p>You can download the python library <a href="https://github.com/HalfBrickInASock/TAED-API">from GitHub</a>, 
+				which has built in functionality to call the API.</p>
+
+		<h2 id="kegg_api">KEGG API</h2>
+			<p>Returns a list of KEGG Pathway names, in the proper format for use with the Search API above.</p>
+			<p>No parameters; queryable by GET or POST.
+		
+			<h3>URL for GET/POST</h3>
+			<code>
+https://liberles.cst.temple.edu/TAED/json/KEGG
+			</code>
+			
+			<p>Examples:
+			<ol>
+			<li><a href="https://liberles.cst.temple.edu/TAED/json/KEGG">KEGG List</a></li>
+			</ol>
+
+
+		<h2 id="download">Downloadable Documentation</h2>
+			<p>Downloadable documentation and examples for the search and KEGG list 
+				API can be found at the following links:<br>
+				<a href="sample/API%20Doc%20-%20Search.docx">Call Documentation</a><br>
+				<a href="sample/search_sample.zip">Python Sample Code</a>
+			</p>
+	</div>
+	<p>More examples and information will be added over time.</p> 
+
+    <hr>
+</div>
