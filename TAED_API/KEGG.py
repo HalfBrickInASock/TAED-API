@@ -11,7 +11,7 @@ import jsonpickle
 import MySQLdb
 
 from ruamel import yaml
-
+from flask import Response
 from TAED_API import APP
 
 CONF = yaml.safe_load(open(path.join("config.yaml"), 'r+')) # "TAED_API",
@@ -47,7 +47,9 @@ def db_load_old():
 @APP.route("/KEGG", methods=['GET', 'POST'])
 def kegg_search():
 	"""Gets list of KEGG pathnames, returning a JSON object with list in 'path_names' """
-	return jsonpickle.encode(db_load_old())
+	flask_resp = Response(jsonpickle.encode(db_load_old()))
+
+	return flask_resp
 
 if __name__ == "__main__":
 	APP.run()

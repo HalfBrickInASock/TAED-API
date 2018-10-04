@@ -10,12 +10,13 @@ setup(
     include_package_data=True,
     zip_safe=False,
     install_requires=[
-		'Flask',
+		'flask_cors',
 		'numpy',
 		'jsonpickle',
 		'biopython',
 		'ruamel.yaml',
 		'mysqlclient',
+		'flask',
 		'requests'
 	]
 )
