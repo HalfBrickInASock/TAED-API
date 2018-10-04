@@ -291,7 +291,7 @@ class TAEDSearch(object):
 		if search is None:
 			self.status = {
 				"error_state": True,
-				"error_message": "No Search Data; Please Pass gi_number, kegg_pathway, species, or gene"
+				"error_message": "No Search Data; Please Pass gi_number, kegg_pathway, species, gene, or first character"
 			}
 			return
 
@@ -300,6 +300,7 @@ class TAEDSearch(object):
 		self.__species = search["species"] if "species" in search else ""
 		self.__gene = search["gene"] if "gene" in search else ""
 		self.__kegg_pathway = search["kegg_pathway"] if "kegg_pathway" in search else ""
+		self.__letter = search["letter"] if "letter" in search else ""
 
 		# Parameters that restrict search space.
 		self.__limits = {}
@@ -342,7 +343,7 @@ class TAEDSearch(object):
 	def build_conditional(self):
 		"""Builds conditional WHERE clause for an SQL query for search.
 
-			No parameters; builds should work in both old and new DB formats.
+			No parameters.
 			"""
 		from_clause = ""
 		cond = " WHERE (True)"
@@ -361,6 +362,12 @@ class TAEDSearch(object):
 				from_clause += " INNER JOIN keggMap ON keggMap.gi = gimap.gi"
 				cond += " AND (keggMap.pathName = %s)"
 				parameters.append(self.__kegg_pathway)
+			if self.__letter != "":
+				if self.__letter.isdigit():
+					cond += " LEFT(familyName,1) IN ('1','2','3','4','5','6','7','8','9','0') AND Complete = 1"
+				else:
+					cond += " AND familyName LIKE %s AND Complete = 1"
+					parameters.append(self.__letter + "%")
 			if "min_taxa" in self.__limits:
 				if "max_taxa" in self.__limits:
 					cond += " AND (directory BETWEEN %s AND %s)"
@@ -398,6 +405,8 @@ class TAEDSearch(object):
 				request_data['gene'] = self.__gene
 			if self.__kegg_pathway != "":
 				request_data['kegg_pathway'] = self.__kegg_pathway
+			if self.__letter != "":
+				request_data['lettter'] = self.__letter
 			if "min_taxa" in self.__limits:
 				request_data['min_taxa'] = self.__limits["min_taxa"]
 			if "max_taxa" in self.__limits:
