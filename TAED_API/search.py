@@ -139,7 +139,7 @@ def search_genefamilies(search_obj):
 	if not gene_dict["status"]["error_state"]:
 		gene_dict["gene_families"] = {}
 		for gene_family in c:
-			gene_dict["gene_families"][gene_family['protein family']] = dict(gene_family)
+			gene_dict["gene_families"][gene_family["taedFileNumber"]] = dict(gene_family)
 	if db is not None:
 		db.close()
 	return gene_dict

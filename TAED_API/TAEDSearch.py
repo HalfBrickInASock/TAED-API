@@ -126,7 +126,7 @@ class BLASTSearch(object):
 		else:
 			handle = None
 			if "file_data" in search:
-				handle = StringIO.read(open(search["file_data"]))
+				handle = StringIO(search["file_data"])
 			elif "file_name" in search:
 				handle = open(search["file_name"], "rU")
 			else:
@@ -374,10 +374,10 @@ class TAEDSearch(object):
 					parameters.append(self.__limits["min_taxa"])
 					parameters.append(self.__limits["max_taxa"])
 				else:
-					cond += " AND (directory > %s)"
+					cond += " AND (directory >= %s)"
 					parameters.append(self.__limits["min_taxa"])
 			elif "max_taxa" in self.__limits:
-					cond += " AND (directory < %s)"
+					cond += " AND (directory <= %s)"
 					parameters.append(self.__limits["max_taxa"])
 			if "p_selection" in self.__limits:
 				if self.__limits["p_selection"]:
