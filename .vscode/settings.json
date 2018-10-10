@@ -1,10 +1,11 @@
 // Place your settings in this file to overwrite default and user settings.
 {
-  // Insert spaces when pressing Tab. This setting is overriden based on the file contents when `editor.detectIndentation` is on.
-  "editor.insertSpaces": false,
+	// Insert spaces when pressing Tab. This setting is overriden based on the file contents when `editor.detectIndentation` is on.
+	"editor.insertSpaces": false,
 
-  "editor.detectIndentation": false,
+	"editor.detectIndentation": false,
 
-  // Pylint Issue
-  "python.linting.pylintPath": "/usr/local/venvs/taed/bin/pylint"
+	// Pylint Issue
+	"python.linting.pylintPath": "/usr/local/venvs/taed/bin/pylint",
+	"python.pythonPath": "${workspaceFolder}/venv/bin/python"
 }
