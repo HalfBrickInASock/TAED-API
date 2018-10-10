@@ -6,8 +6,10 @@ db:
   pass: "H6ih2PcqGwy4WjpmRwHZ"
   old_db: "TAED"
   new_db: "TAED_LIGHT"
-flat_file: "../Bulk/TAED2/"
-upload_folder: "../Bulk/TAED2/uploads/"
+files:
+  flat: "./Bulk/TAED2/"
+  blastdb: "./Bulk/TAED2/BLAST/"
+  temp: "./Bulk/TAED2/"
 defaults:
   max_hits: 50
   max_blasts: 5

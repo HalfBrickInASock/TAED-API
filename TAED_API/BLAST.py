@@ -32,10 +32,12 @@ def run_blast(b_search):
 		Arguments:
 		b_search -- Search data Object.
 		"""
+	print(b_search.__dict__)
 
 	try:
-		seq_data, param_list = b_search.build_blastall_params(data_folder=CONF["flat_file"])
-		blast_record = open(path.join(CONF["flat_file"], "blasted", "blastout.out"), 'a+')
+		seq_data, param_list = b_search.build_blastall_params(
+			temp_folder=CONF["files"]["temp"], db_folder=CONF["files"]["blastdb"])
+		blast_record = open(path.join(CONF["files"]["temp"], "blasted", "blastout.out"), 'a+')
 		seq_run = []
 	except FileNotFoundError:
 		b_search.status = {
@@ -44,6 +46,7 @@ def run_blast(b_search):
 								" Please notify the system administrator."),
 			"run_status": BLASTStatus.ERROR
 		}
+
 		return b_search
 
 	b_search.run_status = BLASTStatus.IN_PROGRESS
@@ -54,6 +57,7 @@ def run_blast(b_search):
 		except: #pylint:disable=bare-except
 			b_search.status["run_status"] = BLASTStatus.ERROR
 			b_search.status["error_message"] = str(sys.exc_info())
+
 	return b_search
 
 @APP.route("/BLAST", methods=['GET', 'POST'])
@@ -101,23 +105,30 @@ def blast_search():
 	elif isinstance(user_query, dict):
 		search = BLASTSearch(user_query)
 	else:
-		resp = jsonpickle.encode({"error" : "Invalid Call Format"})
+		resp = jsonpickle.encode({"error_message" : "Invalid Call Format", "status" : BLASTStatus.ERROR.value, "uid": None})
 
 	if resp == None:
+		new_blast = { "error_message" : "", "status" : BLASTStatus.ERROR.value, "uid": None }
 		if not search.status["error_state"]:
 			search = run_blast(search)
 
 			if not search.status["error_state"]:
 				uid = search.get_uid()
-				with (open(path.join(CONF["flat_file"], "blasts", uid + ".bs"), mode="w")) as obj_file:
+				with (open(path.join(CONF["files"]["temp"], "blasts", uid + ".bs"), mode="w")) as obj_file:
 					json = jsonpickle.encode(search)
 					LOG.error(json)
 					obj_file.write(json)
-		resp = jsonpickle.encode(search)
+				new_blast["uid"] = uid
+			new_blast["status"] = search.status["run_status"].value
+		
+		if "error_message" in search.status:
+			new_blast["error_message"] = search.status["error_message"]
 
-	flask_resp = Response(resp)
-
-	return jsonpickle.encode(flask_resp)
+		resp = jsonpickle.encode(new_blast)
+	else:
+		resp = jsonpickle.encode({"error_message" : "Invalid Call Format", "status" : BLASTStatus.ERROR.value, "uid": None})
+	
+	return resp
 
 @APP.route("/BLASTStatus", methods=['GET', 'POST'])
 def blast_status():
@@ -136,31 +147,28 @@ def blast_status():
 	elif request.method == 'GET':
 		uid = request.args.get('uid', '')
 	else:
-		return jsonpickle.encode({"Invalid Request" : request.data})
+		return Response(jsonpickle.encode({"Bad Request" : request.data}), status=400, mimetype='application/json')
 
 	# Need to handle different SHELF db formats.
-	if resp is None:
-		if (path.exists(path.join(CONF["flat_file"], "blasts", uid + ".bs")) or
-				path.exists(path.join(CONF["flat_file"], "blasts", uid + ".bs.dat"))):
-			status = BLASTStatus.ERROR
-			try:
-				with (open(path.join(CONF["flat_file"], "blasts", uid + ".bs"), mode="r")) as obj_file:
-					# I should be using shelve but it is not working.
-					temp = jsonpickle.decode(obj_file.read())
-					status = temp.get_local_status()
-				with (open(path.join(CONF["flat_file"], "blasts", uid + ".bs"), mode="w")) as obj_file:
-					obj_file.write(jsonpickle.encode(temp))
-				resp = jsonpickle.encode(status)
-			except (FileNotFoundError, FileExistsError):
-				LOG.error(sys.exc_info())
-				resp = jsonpickle.encode({"Error" : sys.exc_info()})			
-		else:
-			LOG.error("Status could not find path %s", path.join(CONF["flat_file"], "blasts", uid + ".bs"))
-			resp = jsonpickle.encode({"Error" : "No Record Found", "UID" : uid})
-	
-	flask_resp = Response(resp)
+	if (path.exists(path.join(CONF["files"]["temp"], "blasts", uid + ".bs")) or
+			path.exists(path.join(CONF["files"]["temp"], "blasts", uid + ".bs.dat"))):
+		status = BLASTStatus.ERROR
+		try:
+			with (open(path.join(CONF["files"]["temp"], "blasts", uid + ".bs"), mode="r")) as obj_file:
+				# I should be using shelve but it is not working.
+				temp = jsonpickle.decode(obj_file.read())
+				status = temp.get_local_status()
+			with (open(path.join(CONF["files"]["temp"], "blasts", uid + ".bs"), mode="w")) as obj_file:
+				obj_file.write(jsonpickle.encode(temp))
+			resp = jsonpickle.encode({"error_message": None, "status": status.value, "uid": uid})
+		except (FileNotFoundError, FileExistsError):
+			LOG.error(sys.exc_info())
+			resp = jsonpickle.encode({"error_message" : sys.exc_info(), "status": BLASTStatus.ERROR.value, "uid": uid})			
+	else:
+		LOG.error("Status could not find path %s", path.join(CONF["files"]["temp"], "blasts", uid + ".bs"))
+		resp = jsonpickle.encode({"error_message" : "No Record Found", "uid" : uid})
 
-	return jsonpickle.encode(flask_resp)
+	return resp
 
 @APP.route("/BLASTResult", methods=['GET', 'POST'])
 def blast_result():
@@ -184,27 +192,26 @@ def blast_result():
 	data = None
 	if resp is None:
 		# Need to handle different SHELF db formats.
-		if (path.exists(path.join(CONF["flat_file"], "blasts", uid + ".bs")) or
-				path.exists(path.join(CONF["flat_file"], "blasts", uid + ".bs.dat"))):
+		if (path.exists(path.join(CONF["files"]["temp"], "blasts", uid + ".bs")) or
+				path.exists(path.join(CONF["files"]["temp"], "blasts", uid + ".bs.dat"))):
 
 			# I should be using shelve but it is not working.
-			with (open(path.join(CONF["flat_file"], "blasts", uid + ".bs"), mode="r")) as obj_file:
+			with (open(path.join(CONF["files"]["temp"], "blasts", uid + ".bs"), mode="r")) as obj_file:
 				temp = jsonpickle.decode(obj_file.read())
 				status = temp.get_local_status()
-			with (open(path.join(CONF["flat_file"], "blasts", uid + ".bs"), mode="w")) as obj_file:
+			with (open(path.join(CONF["files"]["temp"], "blasts", uid + ".bs"), mode="w")) as obj_file:
 				obj_file.write(jsonpickle.encode(temp))
 
 			if status == BLASTStatus.COMPLETE:
 				data = temp.return_files()
+				resp = jsonpickle.encode({"blast_hits" : data, "uid": uid, "status": status.value})
 			else:
-				resp = jsonpickle.encode({"Error" : "BLAST Not Complete", "uid" : uid, "Status" : status})
+				resp = jsonpickle.encode({"error_message" : "BLAST Not Complete", "uid" : uid, "status" : status.value})
 		else:
-			LOG.error("Return could not find path %s", path.join(CONF["flat_file"], "blasts", uid + ".bs"))
-			resp = jsonpickle.encode({"Error" : "No Record Found", "UID" : uid})
+			LOG.error("Return could not find path %s", path.join(CONF["files"]["temp"], "blasts", uid + ".bs"))
+			resp = jsonpickle.encode({"error_message" : "No Record Found", "UID" : uid})
 
-	flask_resp = Response(resp)
-
-	return jsonpickle.encode(flask_resp)
+	return resp
 
 if __name__ == "__main__":
 	APP.run()

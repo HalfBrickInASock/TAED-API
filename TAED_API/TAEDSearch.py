@@ -147,25 +147,25 @@ class BLASTSearch(object):
 			"""
 		return self.__uid
 
-	def build_blastall_params(self, data_folder):
+	def build_blastall_params(self, temp_folder, db_folder):
 		"""Builds blastall command line arguments.
 
 			Parameters:
-			data_folder -- Root folder for flat file manipulation (output, BLAST db, etc).
+			temp_folder -- Root folder for flat file manipulation (output, BLAST db, etc).
 			"""
 		parameter_list = []
-		self.paths["local"] = data_folder
+		self.paths["local"] = temp_folder
 
 		for i in range(len(self.__sequences)):
 
-			output_path = path.join(data_folder, "blasted", str(self.__uid) + "_" + str(i))
-			input_path = path.join(data_folder, "blasts", str(self.__uid) + "_" + str(i) + ".fasta")
+			output_path = path.join(temp_folder, "blasted", str(self.__uid) + "_" + str(i))
+			input_path = path.join(temp_folder, "blasts", str(self.__uid) + "_" + str(i) + ".fasta")
 			SeqIO.write(self.__sequences[i], input_path, "fasta")
 
 			seq_param = [
 				"-p", "blastp",
 				"-i", "{0}".format(input_path),
-				"-d", "{0}".format(path.join(data_folder, "BLAST", "DATABASE99.fasta")),
+				"-d", "{0}".format(path.join(db_folder, "DATABASE99.fasta")),
 				"-o", "{0}".format(output_path),
 				"-a2",
 				"-m7" #XML Format
@@ -268,9 +268,11 @@ class BLASTSearch(object):
 		for i in range(0, len(self.__sequences)):
 			file_path = path.join(self.paths["local"], "blasted", str(self.__uid) + "_" + str(i))
 			with open(file_path) as handle:
+				# Will actually only make 1 blast hit because it blasted each sequence separately.
+				# But that's ok, since parse only gives an iterator anyway.
 				for record in NCBIXML.parse(handle):
 					blast_hits.append(record)
-		return {"error_state": False, "blast_hits": blast_hits}
+		return blast_hits
 
 class TAEDSearch(object):
 	"""Object holding user search data.
