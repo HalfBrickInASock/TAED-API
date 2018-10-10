@@ -17,7 +17,7 @@ import MySQLdb
 import jsonpickle
 
 from ruamel import yaml
-from flask import request, Response
+from flask import request, Response, abort, send_file, safe_join
 
 from Bio import Phylo
 
@@ -79,7 +79,7 @@ def search_flatfiles(search_obj):
 	if not gene_dict["status"]["error_state"]:
 		for gene in c:
 			# Alignment / Tree info is stored in flat files in location given by db fields.
-			flat_path = path.join(CONF["flat_file"], gene["baseDirectory"], gene["Directory"])
+			flat_path = path.join(CONF["files"]["flat"], gene["baseDirectory"], gene["Directory"])
 
 			# Auto-load the files into our extensions of BioPython objects.
 			try:
@@ -125,10 +125,10 @@ def search_genefamilies(search_obj):
 	# pylint: disable=C0103
 	log = logging.getLogger("dbserver")
 	db, c = get_db_cursor("SELECT REPLACE(familyName,'_',' ') AS 'protein family'" +
-		", IF(interleafed IS NOT NULL, CONCAT_WS('/','..',baseDirectory,directory,interleafed),NULL) AS alignment" +
-		", IF(interleafed IS NOT NULL, REPLACE(CONCAT_WS('/','..',baseDirectory,directory,taedfile.taedFileNumber,'.taedView'),'/.','.'),NULL) AS alignViewable" +
-		", IF(nhxRooted IS NOT NULL, CONCAT(CONCAT_WS('/','..',baseDirectory,directory,nhxRooted),'&fn=',familyName),NULL) AS 'rooted tree'" +
-		", IF(reconciledTree IS NOT NULL, CONCAT_WS('/','..',baseDirectory,directory,reconciledTree),NULL) AS 'reconciled tree'" +
+		", IF(interleafed IS NOT NULL, CONCAT_WS('/',baseDirectory,directory,interleafed),NULL) AS alignment" +
+		", IF(interleafed IS NOT NULL, REPLACE(CONCAT_WS('/',baseDirectory,directory,taedfile.taedFileNumber,'.taedView'),'/.','.'),NULL) AS alignViewable" +
+		", IF(nhxRooted IS NOT NULL, CONCAT(CONCAT_WS('/',baseDirectory,directory,nhxRooted),'&fn=',familyName),NULL) AS 'rooted tree'" +
+		", IF(reconciledTree IS NOT NULL, CONCAT_WS('/',baseDirectory,directory,reconciledTree),NULL) AS 'reconciled tree'" +
 		", pValue" +
 		", IF(pValue > 0.05,paml1RatioDNDS,NULL) AS 'single dN/dS'" +
 		", IF(pdbEntry IS NOT NULL, CONCAT_WS('/',pdbEntry),NULL) AS 'PDB'" +
@@ -226,3 +226,11 @@ def taed_search():
 
 if __name__ == "__main__":
 	APP.run()
+
+
+@APP.route('/flat_file/<path:file_path>', methods=['GET'])
+def flat_file(file_path):
+	if path.exists(CONF["files"]["flat"] + file_path):
+		return send_file(safe_join(CONF["files"]["flat"], file_path))
+	else:
+		return abort(404)
