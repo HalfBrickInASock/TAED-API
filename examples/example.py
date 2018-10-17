@@ -13,6 +13,7 @@ from TAED_API.TAEDSearch import TAEDSearch #pylint:disable=import-error,C0413
 
 # URL of the API.
 remote_url = "https://liberles.cst.temple.edu/TAED/json/search"
+#remote_url = "http://127.0.0.1:5050/search"
 
 # Since we're in a default error state we shouldn't search.
 t_s = TAEDSearch()
@@ -22,7 +23,8 @@ if t_s.status["error_state"]:
 	# There's an error!
 	print('Here is the no-data error message:\n')
 	print(t_s.status["error_message"])
-
+"""
+This will no longer automatically reject, but is unreliable.
 # You can try searching after passing an empty data dictionary but it will also fail.
 t_s = TAEDSearch({})
 result = t_s.run_web_query(remote_url)
@@ -31,7 +33,7 @@ result = t_s.run_web_query(remote_url)
 #	"No Search Data; Please Pass gi_number, species, or gene"
 if result["status"]["error_state"]:
 	print(result["status"]["error_message"])
-
+"""
 # Now for a valid search.
 t_s = TAEDSearch(search={"gi_number": "349004"})
 result = t_s.run_web_query(remote_url)

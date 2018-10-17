@@ -116,7 +116,7 @@ def search_flatfiles(search_obj):
 		db.close()
 	return gene_dict
 
-def search_genefamilies(search_obj):
+def search_genefamilies(search_obj, url_root):
 	gene_dict = {
 		"status": {
 			"error_state": False
@@ -140,6 +140,11 @@ def search_genefamilies(search_obj):
 		gene_dict["gene_families"] = {}
 		for gene_family in c:
 			gene_dict["gene_families"][gene_family["taedFileNumber"]] = dict(gene_family)
+			gene_dict["gene_families"][gene_family["taedFileNumber"]]["alignment"] = "{0}flat_file/{1}".format(url_root, gene_family["alignment"])
+			gene_dict["gene_families"][gene_family["taedFileNumber"]]["alignViewable"] = "{0}flat_file/{1}".format(url_root, gene_family["alignViewable"])
+			gene_dict["gene_families"][gene_family["taedFileNumber"]]["rooted tree"] = "{0}flat_file/{1}".format(url_root, gene_family["rooted tree"])
+			gene_dict["gene_families"][gene_family["taedFileNumber"]]["reconciled tree"] = "{0}flat_file/{1}".format(url_root, gene_family["reconciled tree"])
+
 	if db is not None:
 		db.close()
 	return gene_dict
@@ -173,9 +178,14 @@ def taed_search():
 	search = None
 
 	# Parse the arguments into a dictionary to pass to constructor.
+
 	if request.is_json:
 		user_query = jsonpickle.decode(request.data)
 	elif request.method == 'POST':
+		if isinstance(request.data, bytes):
+			user_query = jsonpickle.decode(request.data.decode())
+			print(request.data)
+			print(user_query)
 		user_query = {
 			"letter": request.form['letter'] if 'letter' in request.form else '',
 			"gi_number": request.form['gi_number'] if 'gi_number' in request.form else '',
@@ -186,7 +196,7 @@ def taed_search():
 			"kegg_pathway": request.form['kegg_pathway'] if 'kegg_pathway' in request.form else '',
 			"dn_ds": request.form['dn_ds'] if 'dn_ds' in request.form else ''
 		}
-	else:
+	elif request.method == 'GET':
 		user_query = {
 			"letter": request.args.get('letter', ''),
 			"gi_number": request.args.get('gi_number', ''),
@@ -197,17 +207,18 @@ def taed_search():
 			"kegg_pathway": urllib.parse.unquote_plus(request.args.get('kegg_pathway', '')),
 			"dn_ds": request.args.get('dn_ds', '')
 		}
-
 	# With a dictionary, call constructor.
 	# If an object already, just use that.
 	# Otherwise, bad JSON.
 	resp = None
+
 	if isinstance(user_query, TAEDSearch):
 		search = user_query
 	elif isinstance(user_query, dict):
 		search = TAEDSearch(user_query)
 	else:
 		resp = jsonpickle.encode({"error" : "Invalid Call Format"})
+	print(search)
 
 	if resp is not None:
 		try:
@@ -220,13 +231,12 @@ def taed_search():
 	if resource == "search":
 		resp = jsonpickle.encode(search_flatfiles(search))
 	elif resource == "genefamilies":
-		resp = jsonpickle.encode(search_genefamilies(search))
+		resp = jsonpickle.encode(search_genefamilies(search, request.url_root))
 	flask_resp = Response(resp)
 	return flask_resp
 
 if __name__ == "__main__":
 	APP.run()
-
 
 @APP.route('/flat_file/<path:file_path>', methods=['GET'])
 def flat_file(file_path):

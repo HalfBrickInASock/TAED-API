@@ -333,6 +333,7 @@ class TAEDSearch(object):
 			if search["dn_ds"]  in ["N", "n", "False"]:
 				self.__limits["p_selection"] = False
 
+		"""
 		if ((self.__gi == "") and
 			(self.__species == "") and
 			(self.__gene == "") and
@@ -341,6 +342,7 @@ class TAEDSearch(object):
 				"error_state": True,
 				"error_message": "No Search Data; Please Pass gi_number, kegg_pathway, species, or gene"
 			}
+		"""
 
 	def build_conditional(self):
 		"""Builds conditional WHERE clause for an SQL query for search.
@@ -388,8 +390,24 @@ class TAEDSearch(object):
 					cond += " AND (positiveRatio != 1)"
 		return from_clause, cond, parameters
 
+	def call_remote(self, remote, service):
+		"""Calls any remote service with search data.
+
+			Keyword Arguments:
+				remote -- URL of remote webservice.
+				service -- name of remote service to call.
+
+			Return:
+				JSON dictionary holding returned data.
+			"""
+		print(self.__dict__)
+		print(jsonpickle.encode(self))
+		print(jsonpickle.encode(self, unpicklable=False))
+		req = requests.post(remote + service, data = jsonpickle.encode(self))
+		return jsonpickle.decode(req.text)
+
 	def run_web_query(self, remote_url):
-		"""Queries remote webservice with search data to get JSON result.
+		"""Queries remote /search webservice with search data to get JSON sequences in return.
 
 			Keyword Arguments:
 				remote_url -- URL of webservice to call.
@@ -419,6 +437,8 @@ class TAEDSearch(object):
 		#  	Will need to address; now we have a bunch of extra steps to cleave properly.
 		#TODO: Address JSON Pickle doubling in a better manner.
 		req = requests.get(remote_url, params=request_data)
+
+		print(req.text)
 
 		r_temp = jsonpickle.decode(req.text)
 		for gene in r_temp:
