@@ -54,7 +54,7 @@ class BLASTSearch(object):
 
 		Setup Parameters:
 		uuid -- Unique ID for the run (in case you have one already).
-		job_name -- Name for the run.
+		job_name -- Name for the run; ignored if fetched from file.
 		e_value -- E-Value Threshold for BLAST hits.
 		max_hits -- Maximum number of hits to display.
 
@@ -73,7 +73,6 @@ class BLASTSearch(object):
 
 		# Instance Identification.
 		self.__uid = uuid if uuid is not None else str(uuid4())
-		self.__job_name = search["job_name"] if "job_name" in search else "BLAST Search"
 
 		# Status Management
 		self.status = {
@@ -121,7 +120,7 @@ class BLASTSearch(object):
 				return
 
 			t_seq = Seq(str(search["sequence"]))
-			t_seqrec = SeqRecord(t_seq, id=self.__job_name)
+			t_seqrec = SeqRecord(t_seq, id = search["job_name"] if "job_name" in search else "BLAST Search")
 			self.__sequences = [t_seqrec]
 		else:
 			self.__sequences = []
@@ -155,11 +154,11 @@ class BLASTSearch(object):
 			temp_folder -- Root folder for flat file manipulation (output, BLAST db, etc).
 			"""
 		parameter_list = []
-		self.paths["local"] = temp_folder
+		self.paths["out"] = path.join(db_folder, "runs")
 
 		for i in range(len(self.__sequences)):
 
-			output_path = path.join(temp_folder, "blasted", str(self.__uid) + "_" + str(i))
+			output_path = path.join(self.paths["out"], str(self.__uid) + "_" + str(i) + ".blast")
 			input_path = path.join(temp_folder, "blasts", str(self.__uid) + "_" + str(i) + ".fasta")
 			SeqIO.write(self.__sequences[i], input_path, "fasta")
 
@@ -190,7 +189,7 @@ class BLASTSearch(object):
 
 		files_made = 0
 		for i in range(0, len(self.__sequences)):
-			file_path = path.join(self.paths["local"], "blasted", str(self.__uid) + "_" + str(i))
+			file_path = path.join(self.paths["out"], str(self.__uid) + "_" + str(i) + ".blast")
 			if path.exists(file_path):
 				if stat(file_path).st_size > 0:
 					files_made += 1
@@ -267,7 +266,7 @@ class BLASTSearch(object):
 		blast_hits = []
 
 		for i in range(0, len(self.__sequences)):
-			file_path = path.join(self.paths["local"], "blasted", str(self.__uid) + "_" + str(i))
+			file_path = path.join(self.paths["out"], str(self.__uid) + "_" + str(i) + ".blast")
 			with open(file_path) as handle:
 				# Will actually only make 1 blast hit because it blasted each sequence separately.
 				# But that's ok, since parse only gives an iterator anyway.

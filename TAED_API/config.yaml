@@ -7,9 +7,9 @@ db:
   old_db: "TAED"
   new_db: "TAED_LIGHT"
 files:
-  flat: "./Bulk/TAED2/"
-  blastdb: "./Bulk/TAED2/BLAST/"
-  temp: "./Bulk/TAED2/"
+  flat: "/var/www/TAED/"
+  blast: "/var/www/TAED/BLAST/"
+  temp: "/var/www/TAED/"
 defaults:
   max_hits: 50
   max_blasts: 5

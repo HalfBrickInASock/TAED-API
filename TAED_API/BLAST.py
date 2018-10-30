@@ -10,14 +10,14 @@
 	"""
 
 from subprocess import Popen
-from os import path
+from os import path, remove
 import sys
 import logging
 
 import jsonpickle
 import requests
 from ruamel import yaml
-from flask import request, Response
+from flask import request, Response, safe_join, abort, send_file
 
 from TAED_API.TAEDSearch import BLASTSearch, BLASTStatus
 
@@ -37,7 +37,7 @@ def run_blast(b_search):
 
 	try:
 		seq_data, param_list = b_search.build_blastall_params(
-			temp_folder=CONF["files"]["temp"], db_folder=CONF["files"]["blastdb"])
+			temp_folder=CONF["files"]["temp"], db_folder=CONF["files"]["blast"])
 		blast_record = open(path.join(CONF["files"]["temp"], "blasted", "blastout.out"), 'a+')
 		seq_run = []
 	except FileNotFoundError:
@@ -169,6 +169,23 @@ def blast_status():
 		resp = jsonpickle.encode({"error_message" : "No Record Found", "uid" : uid})
 
 	return resp
+
+
+@APP.route("/BLASTFile/<path:file_path>", methods=['GET', 'POST'])
+def blast_file(file_path):
+	if path.exists(safe_join(CONF["files"]["blast"], "runs", file_path)):
+		return send_file(safe_join(CONF["files"]["blast"], "runs", file_path))
+	else:
+		return abort(404)
+
+@APP.route("/BLAST/<path:file_path>", methods=['DELETE'])
+def blast_remove(file_path):
+	if path.exists(safe_join(CONF["files"]["blast"], "runs", file_path)):
+		remove(safe_join(CONF["files"]["blast"], "runs", file_path))
+		return Response(status=200)
+	else:
+		return abort(404)
+
 
 @APP.route("/BLASTResult", methods=['GET', 'POST'])
 def blast_result():
