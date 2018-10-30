@@ -9,6 +9,7 @@
     """
 
 import json
+import re
 from os import path
 import sys
 import logging
@@ -244,3 +245,112 @@ def flat_file(file_path):
 		return send_file(safe_join(CONF["files"]["flat"], file_path))
 	else:
 		return abort(404)
+
+def gene_db(fields, gi, db_name):
+	log = logging.getLogger("dbserver")
+	db = None
+	c = None
+	try:
+		db = MySQLdb.connect(host=CONF["db"]["host"], user=CONF["db"]["user"],
+								passwd=CONF["db"]["pass"], db=db_name)
+		c = db.cursor(MySQLdb.cursors.DictCursor)
+
+		c.execute("SELECT {0} FROM gimap WHERE gi IN ({1})".format(",".join(fields), ('%s,' * len(gi))[:-1]), gi)
+	except:
+		c = None
+		log.error("DB Connection Problem: %s", sys.exc_info())
+
+	return db, c
+
+@APP.route('/gene/<gi>/<path:properties>', methods=['GET'])
+def gene_info(gi, properties):
+	if properties is not None:
+		# Injection Check.  Gi Handled Later.
+		pat = re.compile("[\'\"`]")
+		if pat.search("properties"):
+			return abort(404)
+
+		# Expands out properties list and adds gi.
+		property_list = properties.split("/")
+		if property_list[0] == "all":
+			property_list[0] = "*"
+		elif "gi" not in properties:
+			property_list.append("gi")
+	else:
+		return abort(404)
+
+	# Parses gi into list if necessary.
+	if gi is None:
+		return abort(404)
+	elif gi == "list":
+		if request.is_json:
+			gi_list = jsonpickle.decode(request.data)
+		else:
+			gi_list = [int(x) for x in request.data.decode('utf-8').split(",")]
+	else:
+		gi_list = [gi]
+
+	db, c = gene_db(property_list, gi_list, CONF["db"]["old_db"])
+	res = {}
+	for gene_detail in c:
+		res[gene_detail.pop('gi')] = gene_detail
+	return jsonpickle.encode(res)
+
+def protein_db(fields, famMapID, db_name):
+	db = None
+	c = None
+	try:
+		db = MySQLdb.connect(host=CONF["db"]["host"], user=CONF["db"]["user"],
+								passwd=CONF["db"]["pass"], db=db_name)
+		c = db.cursor(MySQLdb.cursors.DictCursor)
+
+		parameters = []
+		if famMapID is not None:
+			parameters.append(famMapID)
+			where_clause = " WHERE famMapId = %s" 
+
+		c.execute("SELECT {0} FROM proteinViewer{1}".format(fields, where_clause if famMapID is not None else ""), 
+			parameters)
+	except:
+		c = None
+		log.error("DB Connection Problem: %s", sys.exc_info())
+
+	return db, c
+
+@APP.route('/protein/<family>/<data_req>', methods=['GET'])
+@APP.route('/protein/<family>')
+def protein_info(family, data_req="all"):
+	if family == "all":
+		family = None
+	if data_req == "map":
+		db, c = protein_db("mappedBranchStart, mappedBranchEnd, dNdS, familyName", family, "TAED2")
+	elif data_req == "all":
+		db, c = protein_db("*", family, "TAED2")
+	elif data_req == "file":
+		db, c = protein_db("pdbID", family, "TAED2")
+		if c is None:
+			return abort(500)
+		if c.rowcount == 0:
+			return abort(404)
+		pdb, chain = protein["pdbID"].split("_")
+		return send_file("{0}pdb/{1}.pdb".format(CONF["files"]["flat"], pdb))
+	else:
+		return abort(404)
+
+	if c is None:
+		return abort(500)
+	if c.rowcount == 0:
+		return abort(404)
+
+	protein = dict(c)
+	if "annotations" in protein:
+		protein["annotations"] = protein["annotations"].split(",")
+	if "indicies" in protein:
+		protein["indices"] = protein["indicies"].split(",")
+	if "changes" in protien:
+		protein["changes"] = [int(x) for x in protein["changes"].split(",")]
+	if "pdbID" in protein:
+		protein["pdb"], protein["pdb_chain"] = protein["pdbID"].split("_")
+		protein.pop("pdbID", None)
+	
+	return jsonpickle.encode(protein)
