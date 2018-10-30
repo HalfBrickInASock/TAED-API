@@ -15,6 +15,7 @@ import sys
 import logging
 
 import jsonpickle
+import requests
 from ruamel import yaml
 from flask import request, Response
 
@@ -140,8 +141,7 @@ def blast_status():
 
 	uid = None
 	if request.is_json:
-		# No reason for JSON here
-		return request.data
+		uid = request.json["uid"]
 	elif request.method == 'POST':
 		uid = request.form["uid"]
 	elif request.method == 'GET':
@@ -180,8 +180,7 @@ def blast_result():
 	uid = None
 	resp = None
 	if request.is_json:
-		# No reason for JSON here
-		resp = request.data
+		uid = request.json["uid"]
 	elif request.method == 'POST':
 		uid = request.form["uid"]
 	elif request.method == 'GET':
@@ -204,7 +203,18 @@ def blast_result():
 
 			if status == BLASTStatus.COMPLETE:
 				data = temp.return_files()
-				resp = jsonpickle.encode({"blast_hits" : data, "uid": uid, "status": status.value})
+				metadata = {}
+				for hit in data:
+					accession_list = [desc.accession for desc in hit.descriptions]
+					req = requests.get("{0}gene/list/species/geneName".format(request.url_root), data=",".join(accession_list))
+					if req.status_code == 200:
+						metadata.update(jsonpickle.decode(req.text))
+					for gi in accession_list:
+						if not gi in metadata:
+							metadata[gi] = {}
+						if not "search" in metadata[gi]:
+							metadata[gi]["search"] = "{0}search?gi_number={1}".format(request.url_root, gi)
+				resp = jsonpickle.encode({"blast_hits" : data, "metadata": metadata, "uid": uid, "status": status.value})
 			else:
 				resp = jsonpickle.encode({"error_message" : "BLAST Not Complete", "uid" : uid, "status" : status.value})
 		else:
