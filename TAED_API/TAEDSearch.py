@@ -124,6 +124,7 @@ class BLASTSearch(object):
 			t_seqrec = SeqRecord(t_seq, id=self.__job_name)
 			self.__sequences = [t_seqrec]
 		else:
+			self.__sequences = []
 			handle = None
 			if "file_data" in search:
 				handle = StringIO(search["file_data"])
