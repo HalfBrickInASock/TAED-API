@@ -295,6 +295,30 @@ def flat_file(file_path):
 	else:
 		return abort(404)
 
+def filepath_fetch(fields, param_dict, db_name):
+	log = logging.getLogger("dbserver")
+	db = None
+	c = None
+
+	db = MySQLdb.connect(host=CONF["db"]["host"], user=CONF["db"]["user"],
+							passwd=CONF["db"]["pass"], db=db_name)
+	c = db.cursor(MySQLdb.cursors.DictCursor)
+
+	print([x if isinstance(x, list) else [x] for x in param_dict.values()])
+
+	# param_dict is a dict of fieldname (key) and either a single or list of values.
+	# Single fieldnames are direct equality checked; lists of values use IN
+	# All parameters are quoted individually by mysqlclient - to do so, the dictionary values are
+	#  flattened into a single list.
+	c.execute("SELECT {0} FROM gimap INNER JOIN taedfile ON gimap.taedFileNumber = taedfile.taedFileNumber WHERE {1}".format(
+			",".join(fields),
+			"AND".join(["({0} = %s)".format(x) if not isinstance(param_dict[x], list) 
+				else "({0} IN ({1}))".format(x, ("%s," * len(param_dict[x]))[:-1]) 
+				for x in list(param_dict.keys())])), 	
+		list(chain.from_iterable([x if isinstance(x, list) else [x] for x in param_dict.values()]))) 
+
+	return db, c
+
 def gene_db(fields, gi, db_name):
 	log = logging.getLogger("dbserver")
 	db = None
@@ -311,8 +335,15 @@ def gene_db(fields, gi, db_name):
 
 	return db, c
 
+
 @APP.route('/gene/<gi>/<path:properties>', methods=['GET'])
 def gene_info(gi, properties):
+	file_properties = {
+		"alignment": "IF(LENGTH(IFNULL(interleafed,'')) > 0, CONCAT_WS('/',baseDirectory,directory,interleafed),NULL) AS alignment",
+		"gene tree": "IF(LENGTH(IFNULL(nhxRooted,'')) > 0, CONCAT(CONCAT_WS('/',baseDirectory,directory,nhxRooted),'&fn=',familyName),NULL) AS 'gene tree'",
+		"reconciled tree": "IF(LENGTH(IFNULL(reconciledTree,'')) > 0, CONCAT_WS('/',baseDirectory,directory,reconciledTree),NULL) AS 'reconciled tree'"
+	}
+	res = {}
 	if properties is not None:
 		# Injection Check.  Gi Handled Later.
 		pat = re.compile("[\'\"`]")
@@ -323,8 +354,14 @@ def gene_info(gi, properties):
 		property_list = properties.split("/")
 		if property_list[0] == "all":
 			property_list[0] = "*"
-		elif "gi" not in properties:
+		else:
+			if "gi" not in properties:
 			property_list.append("gi")
+			for file_property in ["alignment", "gene tree", "reconciled tree"]:
+				if file_property in property_list:
+					property_list.remove(file_property)
+				else:
+					del file_properties[file_property]
 	else:
 		return abort(404)
 
@@ -339,10 +376,32 @@ def gene_info(gi, properties):
 	else:
 		gi_list = [gi]
 
+	# Get all the base gene properties.
 	db, c = gene_db(property_list, gi_list, CONF["db"]["old_db"])
-	res = {}
+	if c is not None:
 	for gene_detail in c:
 		res[gene_detail.pop('gi')] = gene_detail
+		c.close()
+	db.close()
+
+	# Gets the file links
+	db, c = filepath_fetch(list(file_properties.values()) + ["gi"], 
+							{ "gi": gi_list }, CONF["db"]["old_db"])
+	if c is not None:
+		for gene_links in c:
+			for field, value in dict(gene_links).items():
+				if value is None:
+					gene_links.pop(field)
+				else:
+					if field != "gi":
+						gene_links[field] = "{0}flat_file/{1}".format(request.url_root, value)
+			if gene_links["gi"] not in res:
+				res[gene_links.pop('gi')] = gene_links
+			else:
+				res[gene_links.pop('gi')].update(gene_links)
+		c.close()
+	db.close()
+
 	return jsonpickle.encode(res)
 
 def protein_db(fields, famMapID, db_name):
