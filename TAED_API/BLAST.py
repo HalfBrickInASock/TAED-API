@@ -11,6 +11,7 @@
 
 from subprocess import Popen
 from os import path, remove
+from urllib.parse import urlencode
 import sys
 import logging
 
@@ -18,6 +19,8 @@ import jsonpickle
 import requests
 from ruamel import yaml
 from flask import request, Response, safe_join, abort, send_file
+from enum import Enum
+from Bio import Phylo
 
 from TAED_API.TAEDSearch import BLASTSearch, BLASTStatus
 
@@ -26,6 +29,7 @@ from TAED_API import APP
 CONF = yaml.safe_load(open(path.join("config.yaml"), 'r+')) # "TAED_API",
 
 LOG = logging.getLogger("BLASTQuery")
+
 
 def run_blast(b_search):
 	"""Runs a BLAST search using utility.
@@ -71,6 +75,11 @@ def blast_search():
 		file -- Uploaded file with FASTA sequences; up to 5 will be used.
 		e_value -- Threshold E Value.
 		hits -- Maximum # of results to return.
+		filters - JSON only.  Contains list of following:
+			base - FilterBase Type Showing Type of Filter
+			value - Value to Filter For
+			field - Field to Filter On
+			func - String name of filter function.
 		"""
 	user_query = None
 	search = None
@@ -79,7 +88,7 @@ def blast_search():
 	if request.is_json:
 		user_query = jsonpickle.decode(request.data)
 	elif request.method == 'POST':
-		# All fields required in POST (use empty string if you don't want them)
+		# All fields (but filters) required in POST (use empty string if you don't want them)
 		user_query = {}
 		for job_detail in ["job_name", "e_value", "max_hits", "dn_ds"]:
 			if request.form[job_detail] != "":
@@ -220,10 +229,13 @@ def blast_result():
 
 			if status == BLASTStatus.COMPLETE:
 				data = temp.return_files()
+				final_data = []
 				metadata = {}
 				for hit in data:
 					accession_list = [desc.accession for desc in hit.descriptions]
-					req = requests.get("{0}gene/list/species/geneName".format(request.url_root), data=",".join(accession_list))
+					req = requests.get(
+						"{0}gene/list/species/geneName/alignment/gene tree/reconciled tree/".format(request.url_root), 
+						data=",".join(accession_list))
 					if req.status_code == 200:
 						metadata.update(jsonpickle.decode(req.text))
 					for gi in accession_list:
@@ -231,6 +243,16 @@ def blast_result():
 							metadata[gi] = {}
 						if not "search" in metadata[gi]:
 							metadata[gi]["search"] = "{0}search?gi_number={1}".format(request.url_root, gi)
+							metadata[gi]["genefamilies"] = "{0}genefamilies?gi_number={1}".format(request.url_root, gi)
+
+					# Apply Filters.
+
+					print("Pre:{0}:{1}".format(len(hit.descriptions), len(hit.alignments)))
+					temp.prep_filters(metadata)
+					hit.descriptions = temp.run_filters(hit.descriptions)
+					hit.alignments = temp.run_filters(hit.alignments)
+					print("Post:{0}:{1}".format(len(hit.descriptions), len(hit.alignments)))
+
 				resp = jsonpickle.encode({"blast_hits" : data, "metadata": metadata, "uid": uid, "status": status.value})
 			else:
 				resp = jsonpickle.encode({"error_message" : "BLAST Not Complete", "uid" : uid, "status" : status.value})

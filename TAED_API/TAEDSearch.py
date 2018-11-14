@@ -10,7 +10,7 @@ import sys
 from os import path, stat
 from io import StringIO
 from enum import Enum
-from Bio import SeqIO
+from Bio import SeqIO, Phylo
 from Bio.Blast import NCBIXML
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
@@ -38,6 +38,71 @@ class BLASTStatus(Enum):
 	READY = 1
 	IN_PROGRESS = 2
 	COMPLETE = 4
+
+class FilterBase(Enum):
+	CUSTOM = -2
+	PASS = -1
+	VALUE = 0
+	TREE = 1
+
+class ValidFilters(Enum):
+	VALUE = "Value_Filter"
+	TREE = "Tree_Filter"
+
+	@classmethod
+	def has_func(cls, value):
+		return any(value == item.value for item in cls)
+
+	def get_func(self):
+		return globals()[self.value]
+
+class BLASTFilter(object):
+
+	def __init__(self, base = FilterBase.PASS, field = "", value = "", func = None):
+		self.base = base
+		self.field = field
+		self.value = value
+		self.core_func = func
+	
+	def prep(self, metadata, newfunc = None):
+		self.metadata = metadata
+		if newfunc is not None:
+			temp = ValidFilters(newfunc)
+			self.core_func = temp
+		if self.base == FilterBase.CUSTOM:
+			# Use the custom function as given.
+			self.func = self.core_func
+			return
+		elif self.base == FilterBase.PASS:
+			self.func = None
+			return
+		elif self.base == FilterBase.TREE:
+			
+			self.func = lambda x: self.core_func.get_func()(
+				tree_url = self.metadata[x.accession][self.field],		# tree_url
+				value = self.value										# value
+			) if self.field in self.metadata[x.accession] else False
+		elif self.base == FilterBase.VALUE:
+			self.func = lambda x: self.func(
+				item = x,												# item
+				field = self.field,										# field
+				value = self.value										# value
+			)
+
+def Value_Filter(item, field, value):
+	return True
+
+def Tree_Filter(tree_url, value):
+
+	tree_stream = StringIO(requests.get(tree_url).text)
+	trees = Phylo.parse(tree_stream, "newick")
+
+	for tree in trees:
+		#print(tree)
+		element = tree.find_any(name=".*{0}.*".format(value))
+		if element is not None:
+			return True
+	return False
 
 class BLASTSearch(object):
 	"""Object holding blast search data.
@@ -84,7 +149,7 @@ class BLASTSearch(object):
 		# Location
 		self.paths = paths if paths is not None else {}
 
-		# Filtering.
+		# Search Filtering.
 		# Positive Selection filtering can be:
 		#	positive only (dn_ds = True, Y, y)
 		#	negative only (dn_ds = False, N, n)
@@ -136,11 +201,45 @@ class BLASTSearch(object):
 				self.__sequences.append(record)
 			handle.close()
 
+		# Result Filters.
+		self.__filters = []
+		if "result_filters" in search:
+			try:
+				for result_filter in search["result_filters"]:
+					self.__filters.append(BLASTFilter(
+						FilterBase(result_filter["base"]),
+						result_filter["field"],
+						result_filter["value"],
+						ValidFilters(result_filter["func"])
+					))
+			except ValueError:
+				self.status["error_message"] = "Invalid Filters: {0}".format(sys.exc_info())
+				return
+
 		self.status = {
 			"error_state": False,
 			"run_status": BLASTStatus.READY
 		}
 		return
+
+		# Eric Hay (University of Maryland)
+		# Biology Department at U of M
+		# George Washington Unversity
+		
+
+	def add_filter(self, blast_filter):
+		self.__filters.append(blast_filter)
+
+	def prep_filters(self, metadata):
+		for blast_filter in self.__filters:
+			blast_filter.prep(metadata)
+	
+	def run_filters(self, dataset):
+		final_set = dataset
+		for blast_filter in self.__filters:
+			print("Aloha:{0}:{1}".format(blast_filter.func, len(final_set)))
+			final_set = filter(blast_filter.func, final_set)
+		return list(final_set)
 
 	def get_uid(self):
 		"""Gets unique identifier for this object.
