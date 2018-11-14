@@ -405,8 +405,10 @@ def gene_info(gi, properties):
 	return jsonpickle.encode(res)
 
 def protein_db(fields, famMapID, db_name):
+	log = logging.getLogger("dbserver")
 	db = None
 	c = None
+
 	try:
 		db = MySQLdb.connect(host=CONF["db"]["host"], user=CONF["db"]["user"],
 								passwd=CONF["db"]["pass"], db=db_name)
@@ -455,10 +457,13 @@ def protein_info(family, data_req="all"):
 		protein["annotations"] = protein["annotations"].split(",")
 	if "indicies" in protein:
 		protein["indices"] = protein["indicies"].split(",")
-	if "changes" in protien:
+	if "changes" in protein:
 		protein["changes"] = [int(x) for x in protein["changes"].split(",")]
 	if "pdbID" in protein:
 		protein["pdb"], protein["pdb_chain"] = protein["pdbID"].split("_")
 		protein.pop("pdbID", None)
 	
+	c.close()
+	db.close()
+
 	return jsonpickle.encode(protein)
