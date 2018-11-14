@@ -348,7 +348,7 @@ def gene_info(gi, properties):
 	if properties is not None:
 		# Injection Check.  Gi Handled Later.
 		pat = re.compile("[\'\"`]")
-		if pat.search("properties"):
+		if pat.search(properties):
 			return abort(404)
 
 		# Expands out properties list and adds gi.
@@ -405,7 +405,7 @@ def gene_info(gi, properties):
 
 	return jsonpickle.encode(res)
 
-def protein_db(fields, famMapID, db_name):
+def protein_branch_db(fields, famMapList, db_name):
 	log = logging.getLogger("dbserver")
 	db = None
 	c = None
@@ -415,30 +415,36 @@ def protein_db(fields, famMapID, db_name):
 								passwd=CONF["db"]["pass"], db=db_name)
 		c = db.cursor(MySQLdb.cursors.DictCursor)
 
-		parameters = []
-		if famMapID is not None:
-			parameters.append(famMapID)
-			where_clause = " WHERE famMapId = %s" 
-
-		c.execute("SELECT {0} FROM proteinViewer{1}".format(fields, where_clause if famMapID is not None else ""), 
-			parameters)
+		c.execute("SELECT {0} FROM proteinViewer{1}".format(fields, 
+			" WHERE famMapId IN ({0})".format(('%s,' * len(famMapList))[:-1]) if famMapList is not None else ""), 
+			famMapList if famMapList is not None else [])
 	except:
 		c = None
 		log.error("DB Connection Problem: %s", sys.exc_info())
 
 	return db, c
 
-@APP.route('/protein/<family>/<data_req>', methods=['GET'])
-@APP.route('/protein/<family>')
-def protein_info(family, data_req="all"):
-	if family == "all":
-		family = None
+@APP.route('/branch/<family>/<path:data_req>', methods=['GET'])
+@APP.route('/branch/<family>')
+def branch_info(family, data_req="all"):
+	if family is None:
+		return abort(404)
+	elif family == "all":
+		family_list = None
+	elif family == "list":
+		if request.is_json:
+			family_list = jsonpickle.decode(request.data)
+		else:
+			family_list = [int(x) for x in request.data.decode('utf-8').split(",")]
+	else:
+		family_list = [family]
+
 	if data_req == "map":
-		db, c = protein_db("mappedBranchStart, mappedBranchEnd, dNdS, familyName", family, "TAED2")
+		db, c = protein_branch_db(["mappedBranchStart","mappedBranchEnd","dNdS","familyName"], family, "TAED2")
 	elif data_req == "all":
-		db, c = protein_db("*", family, "TAED2")
+		db, c = protein_branch_db(["*"], family, "TAED2")
 	elif data_req == "file":
-		db, c = protein_db("pdbID", family, "TAED2")
+		db, c = protein_branch_db(["pdbID"], family, "TAED2")
 		if c is None:
 			return abort(500)
 		if c.rowcount == 0:
@@ -446,7 +452,11 @@ def protein_info(family, data_req="all"):
 		pdb, chain = protein["pdbID"].split("_")
 		return send_file("{0}pdb/{1}.pdb".format(CONF["files"]["flat"], pdb))
 	else:
-		return abort(404)
+		# Injection Check.
+		pat = re.compile("[\'\"`]")
+		if pat.search(data_req):
+			return abort(404)
+		db, c = protein_branch_db(data_req.split("/"), family, "TAED2")
 
 	if c is None:
 		return abort(500)
