@@ -126,10 +126,10 @@ def search_genefamilies(search_obj, url_root):
 	# pylint: disable=C0103
 	log = logging.getLogger("dbserver")
 	db, c = get_db_cursor("SELECT REPLACE(familyName,'_',' ') AS 'protein family'" +
-		", IF(interleafed IS NOT NULL, CONCAT_WS('/',baseDirectory,directory,interleafed),NULL) AS alignment" +
-		", IF(interleafed IS NOT NULL, REPLACE(CONCAT_WS('/',baseDirectory,directory,taedfile.taedFileNumber,'.taedView'),'/.','.'),NULL) AS alignViewable" +
-		", IF(nhxRooted IS NOT NULL, CONCAT(CONCAT_WS('/',baseDirectory,directory,nhxRooted),'&fn=',familyName),NULL) AS 'rooted tree'" +
-		", IF(reconciledTree IS NOT NULL, CONCAT_WS('/',baseDirectory,directory,reconciledTree),NULL) AS 'reconciled tree'" +
+		", IF(LENGTH(IFNULL(interleafed,'')) > 0, CONCAT_WS('/',baseDirectory,directory,interleafed),NULL) AS alignment" +
+		", IF(0LENGTH(IFNULL(interleafed,'')) > 0, REPLACE(CONCAT_WS('/',baseDirectory,directory,taedfile.taedFileNumber,'.taedView'),'/.','.'),NULL) AS alignViewable" +
+		", IF(LENGTH(IFNULL(nhxRooted,'')) > 0, CONCAT(CONCAT_WS('/',baseDirectory,directory,nhxRooted),'&fn=',familyName),NULL) AS 'rooted tree'" +
+		", IF(LENGTH(IFNULL(reconciledTree,'')) > 0, CONCAT_WS('/',baseDirectory,directory,reconciledTree),NULL) AS 'reconciled tree'" +
 		", pValue" +
 		", IF(pValue > 0.05,paml1RatioDNDS,NULL) AS 'single dN/dS'" +
 		", IF(pdbEntry IS NOT NULL, CONCAT_WS('/',pdbEntry),NULL) AS 'PDB'" +
@@ -140,11 +140,60 @@ def search_genefamilies(search_obj, url_root):
 	if not gene_dict["status"]["error_state"]:
 		gene_dict["gene_families"] = {}
 		for gene_family in c:
-			gene_dict["gene_families"][gene_family["taedFileNumber"]] = dict(gene_family)
-			gene_dict["gene_families"][gene_family["taedFileNumber"]]["alignment"] = "{0}flat_file/{1}".format(url_root, gene_family["alignment"])
-			gene_dict["gene_families"][gene_family["taedFileNumber"]]["alignViewable"] = "{0}flat_file/{1}".format(url_root, gene_family["alignViewable"])
-			gene_dict["gene_families"][gene_family["taedFileNumber"]]["rooted tree"] = "{0}flat_file/{1}".format(url_root, gene_family["rooted tree"])
-			gene_dict["gene_families"][gene_family["taedFileNumber"]]["reconciled tree"] = "{0}flat_file/{1}".format(url_root, gene_family["reconciled tree"])
+			this_family = dict(gene_family)
+			this_family["alignment"] = "{0}flat_file/{1}".format(url_root, gene_family["alignment"])
+			this_family["alignViewable"] = "{0}flat_file/{1}".format(url_root, gene_family["alignViewable"])
+			this_family["rooted tree"] = "{0}flat_file/{1}".format(url_root, gene_family["rooted tree"])
+			this_family["reconciled tree"] = "{0}flat_file/{1}".format(url_root, gene_family["reconciled tree"])
+
+			if gene_family["paml1RatioDNDS"] and gene_family["pValue"]:
+				this_family["subtree_set"] = list(zip(
+					[float(x) for x in gene_family["paml1RatioDNDS"].split("_")],
+					[float(x) for x in gene_family["pValue"].split("_")],
+					["{0}flat_file/{1}/{2}_{3}.RST{4}".format(url_root, gene_family["directory"], gene_family["taedFileNumber"], x + 1,
+							"_1" if float(y) < 0.05 else "") 
+						for x in range(0, int(gene_family["subtrees"]))
+						for y in gene_family["pValue"].split("_")],
+					["{0}flat_file/{1}/{2}.subTree_tree_{3}.paml{4}".format(url_root, gene_family["directory"], gene_family["taedFileNumber"], x + 1,
+							"_rooted" if float(y) < 0.05 else "_1_ratio_rooted") 
+						for x in range(0, int(gene_family["subtrees"]))
+						for y in gene_family["pValue"].split("_")],
+				))
+			elif gene_family["paml1RatioDNDS"] and (gene_family["directory"] == 2):
+				this_family["subtree_set"] = tuple(
+					float(gene_family["paml1RatioDNDS"]),
+					"{0}flat_file/2/{2}.paml_rooted".format(url_root, gene_family["taedFileNumber"], 1)
+				)
+				print(gene_family)
+			else:
+				this_family["subtree_set"] = []
+			
+			if gene_family["mapPDBLine"]:
+				this_family["lineages"] = dict(zip(
+					gene_family["mapPDBLine"].split(","),
+					gene_family["famMapLine"].split(",")
+				))
+			else:
+				this_family["lineages"] = {}
+			
+
+			if gene_family["mapPDBLine"]:
+				this_family["kegg"] = dict(zip(
+					gene_family["keggNames"].split("_"),
+					["http://www.genome.jp/dbget-bin/www_bget?{0}".format(x) for x in gene_family["keggPathways"].split("_")]
+				))
+			else:
+				this_family["kegg"] = {}
+
+			if gene_family["dndsSummary"]:
+				this_family["selection"] = dict(zip(
+					str(gene_family["branchMapSummary"]).strip().split("##"),
+					str(gene_family["dndsSummary"]).strip().split("##")
+				))
+			else:
+				this_family["selection"] = {}
+			
+			gene_dict["gene_families"][gene_family["taedFileNumber"]] = this_family
 
 	if db is not None:
 		db.close()
