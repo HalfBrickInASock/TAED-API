@@ -11,6 +11,7 @@
 import json
 import re
 from os import path
+from itertools import chain
 import sys
 import logging
 import urllib
@@ -334,7 +335,7 @@ def gene_db(fields, gi, db_name):
 		log.error("DB Connection Problem: %s", sys.exc_info())
 
 	return db, c
-
+	
 
 @APP.route('/gene/<gi>/<path:properties>', methods=['GET'])
 def gene_info(gi, properties):
@@ -356,7 +357,7 @@ def gene_info(gi, properties):
 			property_list[0] = "*"
 		else:
 			if "gi" not in properties:
-			property_list.append("gi")
+				property_list.append("gi")
 			for file_property in ["alignment", "gene tree", "reconciled tree"]:
 				if file_property in property_list:
 					property_list.remove(file_property)
@@ -379,8 +380,8 @@ def gene_info(gi, properties):
 	# Get all the base gene properties.
 	db, c = gene_db(property_list, gi_list, CONF["db"]["old_db"])
 	if c is not None:
-	for gene_detail in c:
-		res[gene_detail.pop('gi')] = gene_detail
+		for gene_detail in c:
+			res[gene_detail.pop('gi')] = gene_detail
 		c.close()
 	db.close()
 
