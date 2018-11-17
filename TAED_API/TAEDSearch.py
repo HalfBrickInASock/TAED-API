@@ -131,17 +131,16 @@ class BLASTSearch(object):
 		file_name -- Name of a file (useful locally).
 		"""
 
-	def __init__(self, search, paths=None, uuid=None):
+	def __init__(self, search, paths=None):
 
 		# Regular Expression for amino acid sequence.
 		aa_seq = re.compile(r"^[ABCDEFGHIKLMNPQRSTUVWYZX\*\-\n\r]+$")
 
 		# Instance Identification.
-		self.__uid = uuid if uuid is not None else str(uuid4())
+		self.__uid = search["uid"] if "uid" in search else str(uuid4())
 
 		# Status Management
 		self.status = {
-			"error_state": True,
 			"error_message": "Unitialized",
 			"run_status":  BLASTStatus.UNITIALIZED
 		}
@@ -168,20 +167,25 @@ class BLASTSearch(object):
 				int(search["max_hits"]) if "max_hits" in search else CONF["defaults"]["max_hits"]
 		except ValueError:
 			self.status["error_message"] = "Invalid Numeric Parameters (e_value / max_hits):"
+			self.status["run_status"] = BLASTStatus.ERROR
 			return
 
 		# Handles Blast Sequence Object.
 		if "seq_obj" in search:
 			try:
 				# Needs to be a list of Sequence Records
-				self.__sequences = jsonpickle.decode(search["seq_obj"])
+				if not isinstance(search["seq_obj"], list):
+					search["seq_obj"] = jsonpickle.decode(search["seq_obj"])
+				self.__sequences = search["seq_obj"]
 			except ValueError:
 				self.status["error_message"] = "Invalid Sequence Object: {0}".format(sys.exc_info())
+				self.status["run_status"] = BLASTStatus.ERROR
 				return
 		elif "sequence" in search:
 			if aa_seq.match(search["sequence"]) is None:
 				self.status["error_message"] = \
 					"Submitted sequence (" + search["sequence"] + ") is not a valid sequence."
+				self.status["run_status"] = BLASTStatus.ERROR
 				return
 
 			t_seq = Seq(str(search["sequence"]))
@@ -213,19 +217,14 @@ class BLASTSearch(object):
 						ValidFilters(result_filter["func"])
 					))
 			except ValueError:
+				self.status["run_status"] = BLASTStatus.ERROR
 				self.status["error_message"] = "Invalid Filters: {0}".format(sys.exc_info())
 				return
 
 		self.status = {
-			"error_state": False,
 			"run_status": BLASTStatus.READY
 		}
 		return
-
-		# Eric Hay (University of Maryland)
-		# Biology Department at U of M
-		# George Washington Unversity
-		
 
 	def add_filter(self, blast_filter):
 		self.__filters.append(blast_filter)
@@ -283,7 +282,7 @@ class BLASTSearch(object):
 			Return:
 				BLASTStatus enum holding status.
 			"""
-		if self.status["error_state"]:
+		if self.status["run_status"] == BLASTStatus.ERROR:
 			return BLASTStatus.ERROR
 
 		files_made = 0
@@ -304,14 +303,15 @@ class BLASTSearch(object):
 			Return:
 				BLASTStatus enum holding status.
 			"""
-		if self.status["error_state"]:
+		if self.status["run_status"] == BLASTStatus.ERROR:
 			return BLASTStatus.ERROR
 
 		if remote_url is None:
 			remote_url = self.paths["remote"] + "Status"
 
 		req = requests.get(remote_url, params={"uid" : self.__uid})
-		self.status["run_status"] = jsonpickle.decode(req.text)
+		self.status = jsonpickle.decode(req.text)
+		self.status["run_status"] = BLASTStatus(self.status["run_status"])
 		return self.status["run_status"]
 
 	def get_remote_data(self, remote_url=None):
@@ -320,8 +320,8 @@ class BLASTSearch(object):
 			Return:
 				Dictionary with error status and (if successful) a list of NCBIXML Biopython objects.
 			"""
-		if self.status["error_state"]:
-			return {"error_state": True, "error_message": self.status["error_message"]}
+		if self.status["run_status"] == BLASTStatus.ERROR:
+			return self.status
 
 		if remote_url is None:
 			remote_url = self.paths["remote"] + "Result"
@@ -339,17 +339,26 @@ class BLASTSearch(object):
 			Return:
 				JSON Object holding a dictionary of returned data (including files).
 			"""
+		self.paths["remote"] = remote_url
+
 		request_data = {
-			"job_name": self.__job_name,
-			"uuid": self.__uid,
+			"uid": self.__uid,
 			"e_value": self.__limits["e_value"],
 			"max_hits": self.__limits["max_hits"],
-			"sequence": str(self.__sequences[0].seq)
+			"seq_obj": self.__sequences,
+			"filters": self.__filters,
 		}
-		self.paths["remote"] = remote_url
-		req = requests.get(remote_url, params=request_data)
-		self = jsonpickle.decode(req.text)
-		self.paths["remote"] = remote_url
+
+		req = requests.post(remote_url, data=jsonpickle.encode(request_data))
+		try:
+			self.status = jsonpickle.decode(req.text)
+			self.status.pop("uid")
+		except TypeError:
+			self.status = { "run_status": BLASTStatus.ERROR, "error_message": "Error {0} Parsing Response {1}".format(sys.exc_info(), req.text) }
+		except AttributeError:
+			self.status = { "run_status": BLASTStatus.ERROR, "error_message": "Error {0} Parsing Response {1}".format(sys.exc_info(), req.text) }
+
+		print(req.text)
 
 		return self
 
@@ -360,7 +369,7 @@ class BLASTSearch(object):
 				Dictionary with error status and (if successful) a list of NCBIXML Biopython objects.
 			"""
 		if self.status["run_status"] != BLASTStatus.COMPLETE:
-			return {"error_state": True, "error_message": "BLAST Run Incomplete"}
+			return {"run_status": self.status["run_status"], "error_message": "BLAST Run Incomplete" }
 
 		blast_hits = []
 

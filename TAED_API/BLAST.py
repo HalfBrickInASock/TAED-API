@@ -37,7 +37,6 @@ def run_blast(b_search):
 		Arguments:
 		b_search -- Search data Object.
 		"""
-	print(b_search.__dict__)
 
 	try:
 		seq_data, param_list = b_search.build_blastall_params(
@@ -46,7 +45,6 @@ def run_blast(b_search):
 		seq_run = []
 	except FileNotFoundError:
 		b_search.status = {
-			"error_state": True,
 			"error_message": ("Remote server is having filesystem issues."
 								" Please notify the system administrator."),
 			"run_status": BLASTStatus.ERROR
@@ -54,7 +52,7 @@ def run_blast(b_search):
 
 		return b_search
 
-	b_search.run_status = BLASTStatus.IN_PROGRESS
+	b_search.status["run_status"] = BLASTStatus.IN_PROGRESS
 
 	for i in range(len(seq_data)): #pylint:disable=consider-using-enumerate
 		try:
@@ -88,16 +86,20 @@ def blast_search():
 	if request.is_json:
 		user_query = jsonpickle.decode(request.data)
 	elif request.method == 'POST':
-		# All fields (but filters) required in POST (use empty string if you don't want them)
-		user_query = {}
-		for job_detail in ["job_name", "e_value", "max_hits", "dn_ds"]:
-			if request.form[job_detail] != "":
-				user_query[job_detail] = request.form[job_detail]
+		if isinstance(request.data, bytes):
+			user_query = jsonpickle.decode(request.data.decode())
+			print("Decoded.")
+		else:
+			# All fields (but filters) required in POST (use empty string if you don't want them)
+			user_query = {}
+			for job_detail in ["job_name", "e_value", "max_hits", "dn_ds"]:
+				if request.form[job_detail] != "":
+					user_query[job_detail] = request.form[job_detail]
 
-		for sequence_datatype in ["seq_obj", "sequence", "file_data", "file_name"]:
-			if request.form[sequence_datatype] != "":
-				user_query[sequence_datatype] = request.form[sequence_datatype]
-				break # We only accept one sequence datatype.
+			for sequence_datatype in ["seq_obj", "sequence", "file_data", "file_name"]:
+				if request.form[sequence_datatype] != "":
+					user_query[sequence_datatype] = request.form[sequence_datatype]
+					break # We only accept one sequence datatype.
 	elif request.method == "GET":
 		# GET Parameters are optional - only pass if you are using.
 		user_query = {}
@@ -115,28 +117,29 @@ def blast_search():
 	elif isinstance(user_query, dict):
 		search = BLASTSearch(user_query)
 	else:
-		resp = jsonpickle.encode({"error_message" : "Invalid Call Format", "status" : BLASTStatus.ERROR.value, "uid": None})
+		resp = jsonpickle.encode({"error_message" : "Invalid Call Format", "run_status" : BLASTStatus.ERROR.value, "uid": None})
 
 	if resp == None:
-		new_blast = { "error_message" : "", "status" : BLASTStatus.ERROR.value, "uid": None }
-		if not search.status["error_state"]:
+		new_blast = { "error_message" : "", "run_status" : BLASTStatus.ERROR.value, "uid": None }
+		if not search.status["run_status"] == BLASTStatus.ERROR:
 			search = run_blast(search)
 
-			if not search.status["error_state"]:
+			print("And I Ran{0}".format(search.status["run_status"]))
+			if not search.status["run_status"] == BLASTStatus.ERROR:
 				uid = search.get_uid()
 				with (open(path.join(CONF["files"]["temp"], "blasts", uid + ".bs"), mode="w")) as obj_file:
 					json = jsonpickle.encode(search)
 					LOG.error(json)
 					obj_file.write(json)
 				new_blast["uid"] = uid
-			new_blast["status"] = search.status["run_status"].value
+			new_blast["run_status"] = search.status["run_status"].value
 		
 		if "error_message" in search.status:
 			new_blast["error_message"] = search.status["error_message"]
 
 		resp = jsonpickle.encode(new_blast)
 	else:
-		resp = jsonpickle.encode({"error_message" : "Invalid Call Format", "status" : BLASTStatus.ERROR.value, "uid": None})
+		resp = jsonpickle.encode({"error_message" : "Invalid Call Format", "run_status" : BLASTStatus.ERROR.value, "uid": None})
 	
 	return resp
 
@@ -169,10 +172,10 @@ def blast_status():
 				status = temp.get_local_status()
 			with (open(path.join(CONF["files"]["temp"], "blasts", uid + ".bs"), mode="w")) as obj_file:
 				obj_file.write(jsonpickle.encode(temp))
-			resp = jsonpickle.encode({"error_message": None, "status": status.value, "uid": uid})
+			resp = jsonpickle.encode({"error_message": None, "run_status": status.value, "uid": uid})
 		except (FileNotFoundError, FileExistsError):
 			LOG.error(sys.exc_info())
-			resp = jsonpickle.encode({"error_message" : sys.exc_info(), "status": BLASTStatus.ERROR.value, "uid": uid})			
+			resp = jsonpickle.encode({"error_message" : sys.exc_info(), "run_status": BLASTStatus.ERROR.value, "uid": uid})			
 	else:
 		LOG.error("Status could not find path %s", path.join(CONF["files"]["temp"], "blasts", uid + ".bs"))
 		resp = jsonpickle.encode({"error_message" : "No Record Found", "uid" : uid})
@@ -253,9 +256,9 @@ def blast_result():
 					hit.alignments = temp.run_filters(hit.alignments)
 					print("Post:{0}:{1}".format(len(hit.descriptions), len(hit.alignments)))
 
-				resp = jsonpickle.encode({"blast_hits" : data, "metadata": metadata, "uid": uid, "status": status.value})
+				resp = jsonpickle.encode({"blast_hits" : data, "metadata": metadata, "uid": uid, "run_status": status.value})
 			else:
-				resp = jsonpickle.encode({"error_message" : "BLAST Not Complete", "uid" : uid, "status" : status.value})
+				resp = jsonpickle.encode({"error_message" : "BLAST Not Complete", "uid" : uid, "run_status" : status.value})
 		else:
 			LOG.error("Return could not find path %s", path.join(CONF["files"]["temp"], "blasts", uid + ".bs"))
 			resp = jsonpickle.encode({"error_message" : "No Record Found", "UID" : uid})
