@@ -128,7 +128,7 @@ def search_genefamilies(search_obj, url_root):
 	log = logging.getLogger("dbserver")
 	db, c = get_db_cursor("SELECT REPLACE(familyName,'_',' ') AS 'protein family'" +
 		", IF(LENGTH(IFNULL(interleafed,'')) > 0, CONCAT_WS('/',baseDirectory,directory,interleafed),NULL) AS alignment" +
-		", IF(0LENGTH(IFNULL(interleafed,'')) > 0, REPLACE(CONCAT_WS('/',baseDirectory,directory,taedfile.taedFileNumber,'.taedView'),'/.','.'),NULL) AS alignViewable" +
+		", IF(LENGTH(IFNULL(interleafed,'')) > 0, REPLACE(CONCAT_WS('/',baseDirectory,directory,taedfile.taedFileNumber,'.taedView'),'/.','.'),NULL) AS alignViewable" +
 		", IF(LENGTH(IFNULL(nhxRooted,'')) > 0, CONCAT(CONCAT_WS('/',baseDirectory,directory,nhxRooted),'&fn=',familyName),NULL) AS 'rooted tree'" +
 		", IF(LENGTH(IFNULL(reconciledTree,'')) > 0, CONCAT_WS('/',baseDirectory,directory,reconciledTree),NULL) AS 'reconciled tree'" +
 		", pValue" +
@@ -235,8 +235,6 @@ def taed_search():
 	elif request.method == 'POST':
 		if isinstance(request.data, bytes):
 			user_query = jsonpickle.decode(request.data.decode())
-			print(request.data)
-			print(user_query)
 		user_query = {
 			"letter": request.form['letter'] if 'letter' in request.form else '',
 			"gi_number": request.form['gi_number'] if 'gi_number' in request.form else '',
@@ -305,8 +303,6 @@ def filepath_fetch(fields, param_dict, db_name):
 							passwd=CONF["db"]["pass"], db=db_name)
 	c = db.cursor(MySQLdb.cursors.DictCursor)
 
-	print([x if isinstance(x, list) else [x] for x in param_dict.values()])
-
 	# param_dict is a dict of fieldname (key) and either a single or list of values.
 	# Single fieldnames are direct equality checked; lists of values use IN
 	# All parameters are quoted individually by mysqlclient - to do so, the dictionary values are
@@ -314,9 +310,9 @@ def filepath_fetch(fields, param_dict, db_name):
 	c.execute("SELECT {0} FROM gimap INNER JOIN taedfile ON gimap.taedFileNumber = taedfile.taedFileNumber WHERE {1}".format(
 			",".join(fields),
 			"AND".join(["({0} = %s)".format(x) if not isinstance(param_dict[x], list) 
-				else "({0} IN ({1}))".format(x, ("%s," * len(param_dict[x]))[:-1]) 
-				for x in list(param_dict.keys())])), 	
-		list(chain.from_iterable([x if isinstance(x, list) else [x] for x in param_dict.values()]))) 
+				else "({0} IN ({1}))".format(x, ("%s," * len(param_dict[x]))[:-1])
+				for x in list(param_dict.keys())])),
+		list(chain.from_iterable([x if isinstance(x, list) else [x] for x in param_dict.values()])))
 
 	return db, c
 
@@ -352,6 +348,9 @@ def gene_info(gi, properties):
 			return abort(404)
 
 		# Expands out properties list and adds gi.
+		# If we end with a / it can cause problems.
+		if properties[-1] == "/":
+			properties = properties[:-1]
 		property_list = properties.split("/")
 		if property_list[0] == "all":
 			property_list[0] = "*"
@@ -456,6 +455,9 @@ def branch_info(family, data_req="all"):
 		pat = re.compile("[\'\"`]")
 		if pat.search(data_req):
 			return abort(404)
+
+		if data_req[-1] == "/":
+			data_req = data_req[:-1]
 		db, c = protein_branch_db(data_req.split("/"), family, "TAED2")
 
 	if c is None:
