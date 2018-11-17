@@ -271,8 +271,6 @@ class BLASTSearch(object):
 			seq_param.append("-e{0}".format(self.__limits["e_value"]))
 			seq_param.append("-v{0}".format(self.__limits["max_hits"]))
 			parameter_list.append(seq_param)
-			if i >= CONF["defaults"]["max_blasts"]:
-				break
 
 		return self.__sequences, parameter_list
 
@@ -311,6 +309,7 @@ class BLASTSearch(object):
 
 		req = requests.get(remote_url, params={"uid" : self.__uid})
 		self.status = jsonpickle.decode(req.text)
+		print(self.status)
 		self.status["run_status"] = BLASTStatus(self.status["run_status"])
 		return self.status["run_status"]
 
