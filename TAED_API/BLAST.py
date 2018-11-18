@@ -124,7 +124,6 @@ def blast_search():
 		if not search.status["run_status"] == BLASTStatus.ERROR:
 			search = run_blast(search)
 
-			print("And I Ran{0}".format(search.status["run_status"]))
 			if not search.status["run_status"] == BLASTStatus.ERROR:
 				uid = search.get_uid()
 				with (open(path.join(CONF["files"]["temp"], "blasts", uid + ".bs"), mode="w")) as obj_file:

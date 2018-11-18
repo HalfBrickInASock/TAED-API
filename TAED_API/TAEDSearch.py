@@ -98,7 +98,6 @@ def Tree_Filter(tree_url, value):
 	trees = Phylo.parse(tree_stream, "newick")
 
 	for tree in trees:
-		#print(tree)
 		element = tree.find_any(name=".*{0}.*".format(value))
 		if element is not None:
 			return True
@@ -210,12 +209,15 @@ class BLASTSearch(object):
 		if "result_filters" in search:
 			try:
 				for result_filter in search["result_filters"]:
-					self.__filters.append(BLASTFilter(
-						FilterBase(result_filter["base"]),
-						result_filter["field"],
-						result_filter["value"],
-						ValidFilters(result_filter["func"])
-					))
+					if isinstance(result_filter, BLASTFilter):
+						self.__filters.append(result_filter)
+					else:
+						self.__filters.append(BLASTFilter(
+							FilterBase(result_filter["base"]),
+							result_filter["field"],
+							result_filter["value"],
+							ValidFilters(result_filter["func"])
+						))
 			except ValueError:
 				self.status["run_status"] = BLASTStatus.ERROR
 				self.status["error_message"] = "Invalid Filters: {0}".format(sys.exc_info())
@@ -309,7 +311,6 @@ class BLASTSearch(object):
 
 		req = requests.get(remote_url, params={"uid" : self.__uid})
 		self.status = jsonpickle.decode(req.text)
-		print(self.status)
 		self.status["run_status"] = BLASTStatus(self.status["run_status"])
 		return self.status["run_status"]
 
@@ -345,7 +346,7 @@ class BLASTSearch(object):
 			"e_value": self.__limits["e_value"],
 			"max_hits": self.__limits["max_hits"],
 			"seq_obj": self.__sequences,
-			"filters": self.__filters,
+			"result_filters": self.__filters,
 		}
 
 		req = requests.post(remote_url, data=jsonpickle.encode(request_data))
@@ -356,8 +357,6 @@ class BLASTSearch(object):
 			self.status = { "run_status": BLASTStatus.ERROR, "error_message": "Error {0} Parsing Response {1}".format(sys.exc_info(), req.text) }
 		except AttributeError:
 			self.status = { "run_status": BLASTStatus.ERROR, "error_message": "Error {0} Parsing Response {1}".format(sys.exc_info(), req.text) }
-
-		print(req.text)
 
 		return self
 
@@ -507,9 +506,6 @@ class TAEDSearch(object):
 			Return:
 				JSON dictionary holding returned data.
 			"""
-		print(self.__dict__)
-		print(jsonpickle.encode(self))
-		print(jsonpickle.encode(self, unpicklable=False))
 		req = requests.post(remote + service, data = jsonpickle.encode(self))
 		return jsonpickle.decode(req.text)
 
@@ -544,8 +540,6 @@ class TAEDSearch(object):
 		#  	Will need to address; now we have a bunch of extra steps to cleave properly.
 		#TODO: Address JSON Pickle doubling in a better manner.
 		req = requests.get(remote_url, params=request_data)
-
-		print(req.text)
 
 		r_temp = jsonpickle.decode(req.text)
 		for gene in r_temp:
