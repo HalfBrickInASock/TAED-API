@@ -235,16 +235,17 @@ def taed_search():
 	elif request.method == 'POST':
 		if isinstance(request.data, bytes):
 			user_query = jsonpickle.decode(request.data.decode())
-		user_query = {
-			"letter": request.form['letter'] if 'letter' in request.form else '',
-			"gi_number": request.form['gi_number'] if 'gi_number' in request.form else '',
-			"species": request.form['species'] if 'species' in request.form else '',
-			"gene": request.form['gene'] if 'gene' in request.form else '',
-			"min_taxa": request.form['min_taxa'] if 'min_taxa' in request.form else '',
-			"max_taxa": request.form['max_taxa'] if 'max_taxa' in request.form else '',
-			"kegg_pathway": request.form['kegg_pathway'] if 'kegg_pathway' in request.form else '',
-			"dn_ds": request.form['dn_ds'] if 'dn_ds' in request.form else ''
-		}
+		else:
+			user_query = {
+				"letter": request.form['letter'] if 'letter' in request.form else '',
+				"gi_number": request.form['gi_number'] if 'gi_number' in request.form else '',
+				"species": request.form['species'] if 'species' in request.form else '',
+				"gene": request.form['gene'] if 'gene' in request.form else '',
+				"min_taxa": request.form['min_taxa'] if 'min_taxa' in request.form else '',
+				"max_taxa": request.form['max_taxa'] if 'max_taxa' in request.form else '',
+				"kegg_pathway": request.form['kegg_pathway'] if 'kegg_pathway' in request.form else '',
+				"dn_ds": request.form['dn_ds'] if 'dn_ds' in request.form else ''
+			}
 	elif request.method == 'GET':
 		user_query = {
 			"letter": request.args.get('letter', ''),
