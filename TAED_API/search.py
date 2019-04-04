@@ -234,8 +234,9 @@ def taed_search():
 		user_query = jsonpickle.decode(request.data)
 	elif request.method == 'POST':
 		if isinstance(request.data, bytes):
-			user_query = jsonpickle.decode(request.data.decode())
-		else:
+			if len(request.data.decode()) > 0:
+				user_query = jsonpickle.decode(request.data.decode())
+		if len(request.form) > 0:
 			user_query = {
 				"letter": request.form['letter'] if 'letter' in request.form else '',
 				"gi_number": request.form['gi_number'] if 'gi_number' in request.form else '',
